@@ -1,0 +1,84 @@
+{
+  "_about": "Click design tokens, dark theme. Same roles as tokens.json; replica-brand swaps values.",
+  "color": {
+    "bg": "#0f1216",
+    "surface": "#181c22",
+    "surface-2": "#22272e",
+    "border": "#2e343c",
+    "border-input": "#7a8494",
+    "text": "#f3f5f7",
+    "text-muted": "#a6aeb8",
+    "accent": "#4fd1c5",
+    "on-accent": "#06231f",
+    "accent-soft": "#12322f",
+    "danger": "#f97066",
+    "on-danger": "#2a0a06",
+    "danger-soft": "#3a1512",
+    "success": "#58d68d",
+    "success-soft": "#123024",
+    "warning": "#f5b84d",
+    "warning-soft": "#3a2a10",
+    "focus": "#4fd1c5"
+  },
+  "pairs": [
+    ["text", "bg"],
+    ["text", "surface"],
+    ["text", "surface-2"],
+    ["text-muted", "bg"],
+    ["text-muted", "surface"],
+    ["text-muted", "surface-2"],
+    ["on-accent", "accent"],
+    ["accent", "bg"],
+    ["accent", "surface"],
+    ["accent", "accent-soft"],
+    ["danger", "bg"],
+    ["danger", "surface"],
+    ["danger", "danger-soft"],
+    ["on-danger", "danger"],
+    ["success", "bg"],
+    ["success", "success-soft"],
+    ["warning", "bg"],
+    ["warning", "warning-soft"],
+    ["text", "accent-soft"],
+    ["border-input", "bg", "ui"],
+    ["border-input", "surface", "ui"],
+    ["focus", "bg", "ui"],
+    ["focus", "surface", "ui"]
+  ],
+  "font": {
+    "sans": "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+    "reading": "Source Serif 4, Georgia, Cambria, Times New Roman, serif",
+    "mono": "JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, monospace"
+  },
+  "type": {
+    "xs": { "size": 12, "line": 16, "weight": 500 },
+    "sm": { "size": 14, "line": 20, "weight": 400 },
+    "base": { "size": 16, "line": 24, "weight": 400 },
+    "lg": { "size": 20, "line": 28, "weight": 600 },
+    "xl": { "size": 28, "line": 34, "weight": 650 },
+    "display": { "size": 40, "line": 44, "weight": 700 }
+  },
+  "space": [0, 4, 8, 12, 16, 24, 32, 48, 64],
+  "radius": { "sm": 6, "md": 10, "lg": 16, "xl": 24, "pill": 999 },
+  "shadow": {
+    "card": "0 1px 2px rgba(0,0,0,.35), 0 1px 3px rgba(0,0,0,.45)",
+    "pop": "0 12px 32px rgba(0,0,0,.55)"
+  },
+  "motion": {
+    "fast": "120ms",
+    "base": "200ms",
+    "slow": "320ms",
+    "ease": "cubic-bezier(.2,.8,.2,1)"
+  },
+  "layout": {
+    "header": 56,
+    "sidebar": 248,
+    "rail": 320,
+    "content-max": 1200,
+    "reading-max": 720,
+    "breakpoint-sm": 640,
+    "breakpoint-md": 768,
+    "breakpoint-lg": 1024,
+    "breakpoint-xl": 1280
+  }
+}

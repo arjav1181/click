@@ -76,7 +76,7 @@ Docker Compose. Detailed rationale and the 63-table schema are in
 | --- | --- |
 | Recon | done |
 | Architecture | done |
-| Design system | pending `/replica-design` |
+| Design system | done (`/replica-design`) |
 | Build | pending `/replica-build` |
 | Backend & auth | pending `/replica-backend` |
 | QA | pending `/replica-test` |
