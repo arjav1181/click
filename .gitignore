@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js / build output
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Runtime data (self-hosted: DB dumps, uploaded audio, exports)
+data/
+storage/
+*.sqlite
+*.sqlite3
+*.db
+
+# Test / QA artifacts
+coverage/
+playwright-report/
+test-results/
+/replica/screens/*.png.tmp
+
+# Editors & OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Logs
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+logs/
+*.log
+
+# Secrets
+*.pem
+*.key
+secrets/
