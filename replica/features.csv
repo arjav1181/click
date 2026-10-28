@@ -1,0 +1,217 @@
+feature,area,priority,original,clone,notes
+Email and password sign-up and sign-in,onboarding,must,yes,no,P0; Otter has email registration
+CLI password reset for operators,onboarding,must,no,no,P0; self-hosted requirement
+Optional SMTP magic-link sign-in,onboarding,should,no,no,P1
+Google OAuth sign-in,onboarding,should,yes,no,P1; all three
+Microsoft OAuth sign-in,onboarding,should,yes,no,P1; all three
+OIDC single sign-on,onboarding,should,yes,no,P5
+SAML single sign-on,onboarding,should,yes,no,P5
+SCIM user provisioning,onboarding,could,yes,no,P5; Granola and Otter
+Email invite links for teammates,workspace,must,yes,no,P0
+Workspace creation and domain auto-join,workspace,should,yes,no,P2
+Guided onboarding (calendar capture providers retention),onboarding,must,yes,no,P0
+Profile locale timezone and avatar,onboarding,must,yes,no,P0
+Roles owner admin member,workspace,must,yes,no,P0
+Groups for sharing and template assignment,workspace,should,yes,no,P3
+Deactivate and reactivate members,workspace,must,yes,no,P2
+Transfer workspace ownership,workspace,must,yes,no,P2
+Workspace-wide recording policy,workspace,must,yes,no,P2
+Private-by-default meeting visibility,workspace,must,yes,no,P1; Granola model
+Admin feature gates for analytics chat and public links,workspace,should,yes,no,P5
+Retention policy per workspace,workspace,must,yes,no,P3
+Legal hold for custodians,workspace,could,yes,no,P5; Granola
+Audit log of admin and data actions,workspace,must,yes,no,P5
+Audit log CSV export,workspace,should,yes,no,P5; Otter
+Workspace usage analytics dashboard,workspace,should,yes,no,P5
+AI budget cap with alerts and hard stop,workspace,must,no,no,P0; replaces purchasable credits
+SMTP storage and SSO configuration UI,workspace,must,no,no,P1
+Google Calendar sync,calendar,must,yes,no,P0
+Microsoft Outlook calendar sync,calendar,should,yes,no,P4
+Auto-join rules per calendar or event,calendar,must,yes,no,P1
+Upcoming meetings widget,calendar,must,yes,no,P0
+Calendar event detail with past-meeting context,calendar,should,yes,no,P2
+Bot joins Zoom meetings,bot,must,yes,no,P1
+Bot joins Microsoft Teams meetings,bot,should,yes,no,P4
+Bot joins Webex meetings where the API allows,bot,could,yes,no,P4
+Send bot to a meeting link on demand,bot,must,yes,no,P1
+Auto-join from calendar events,bot,must,yes,no,P1
+Bot display name and avatar configuration,bot,must,yes,no,P1
+Lobby and waiting-room handling with host admit,bot,should,yes,no,P1
+Consent notice posted in meeting chat,bot,must,yes,no,P1; stricter than originals
+Bot posts live transcript link at meeting start,bot,must,yes,no,P1
+Bot posts summary and action items before meeting end,bot,should,yes,no,P2
+Bot retry and failure console,bot,must,yes,no,P1
+No-show and failed-join alert to the meeting owner,bot,must,yes,no,P1
+Desktop capture of system audio and microphone,botless,must,yes,no,P0
+Desktop meeting detection and start prompt,botless,must,yes,no,P1
+Floating recording indicator with pause and stop,botless,must,yes,no,P0
+Chrome and Chromium extension capture for Google Meet,botless,must,yes,no,P4
+Extension in-page live caption overlay,botless,should,yes,no,P4
+Extension capture of any browser tab audio,botless,could,yes,no,P4; Otter
+Mobile in-person recording,botless,must,yes,no,P4
+Browser microphone recorder,botless,could,yes,no,P4
+Snapshots of shared screens during capture,botless,could,yes,no,P4; Granola and Otter
+Botless capture that works with headphones,botless,must,yes,no,P0
+Upload audio or video up to 5 GB,import,must,yes,no,P0
+Common audio and video codecs with detection,import,must,yes,no,P0
+Import progress cancel and retry,import,must,yes,no,P0
+Import from a URL,import,could,no,no,P5
+Duplicate upload detection,import,should,no,no,P3
+Local Whisper ASR as the default provider,transcription,must,no,no,P0; originals are cloud-only
+Cloud ASR providers Deepgram AssemblyAI Groq OpenAI,transcription,should,yes,no,P2
+Custom OpenAI-compatible ASR endpoint,transcription,could,no,no,P3
+Streaming live transcription,transcription,must,yes,no,P1
+Batch transcription for uploads,transcription,must,yes,no,P0
+Multi-language transcription (30 or more),transcription,should,yes,no,P2
+Automatic language detection,transcription,must,yes,no,P1
+Multi-language mode within one meeting,transcription,should,yes,no,P2; Fireflies Business
+Per-meeting language override,transcription,must,yes,no,P1
+Transcript editing with undo and redo,transcription,must,yes,no,P2
+Find and replace inside a transcript,transcription,must,yes,no,P2
+Raw and cleaned text stored per segment,transcription,should,yes,no,P1; Fireflies raw_text
+Word-level timestamps for playback,transcription,should,yes,no,P2; Otter
+Low-confidence transcript flagging,transcription,should,no,no,P3
+Speaker diarization (who spoke when),speakers,must,yes,no,P1
+Named speaker attribution from calendar attendees,speakers,must,yes,no,P1
+Me versus Them fallback labels,speakers,must,yes,no,P0; Granola
+Rename speakers,speakers,must,yes,no,P1
+Merge duplicate speakers,speakers,must,yes,no,P2; Otter
+Workspace speaker directory,speakers,should,yes,no,P2; Otter shared speakers
+Custom vocabulary for names and jargon,speakers,must,yes,no,P1
+Bulk vocabulary import,speakers,could,no,no,P3
+Live transcript panel during capture,live,must,yes,no,P1
+Live raw notes during the call,live,must,yes,no,P0
+In-meeting AI questions,live,must,yes,no,P2
+Suggested questions during a meeting,live,could,yes,no,P2
+Live outline and running summary,live,should,yes,no,P3
+Live highlights and comments,live,should,yes,no,P2; Otter
+Post an AI answer into meeting chat,live,should,yes,no,P2
+Agenda tracking and private live coaching,live,could,yes,no,P5; Otter Live Assist
+Automatic summary after the meeting,notes,must,yes,no,P0
+Raw notes canvas that steers the summary,notes,must,yes,no,P0; Granola
+Enhanced notes with regenerate,notes,must,yes,no,P0
+Section-based summaries (overview decisions risks),notes,must,yes,no,P0
+Concise versus detailed summary length,notes,must,yes,no,P1
+Citation chips back to transcript segments,notes,must,yes,no,P0
+Accessible provenance labels for human versus AI text,notes,must,no,no,P0; replaces Granola colour convention
+Template-driven summary structure,notes,must,yes,no,P1
+Regenerate with a different template,notes,must,yes,no,P1
+Inline summary editing,notes,must,yes,no,P0
+Summary staleness after transcript edits,notes,should,no,no,P2
+Keyword extraction,notes,must,yes,no,P1
+Timestamped topics and chapters,notes,must,yes,no,P1
+Per-meeting sentiment analysis,notes,should,yes,no,P3
+Question detection,notes,should,yes,no,P3
+Built-in summary templates,automation,must,yes,no,P1
+Custom templates with prompt and sections,automation,must,yes,no,P1
+Share templates with the workspace,automation,should,yes,no,P3
+Assign templates to groups,automation,should,yes,no,P3
+Meeting rules mapping conditions to template or policy,automation,should,yes,no,P4
+Recipes as saved prompts with single or multi scope,automation,must,yes,no,P3
+Scheduled skills per meeting daily weekly monthly,automation,should,yes,no,P3
+Skill output feed,automation,should,yes,no,P3
+Route skill outputs to integrations,automation,should,yes,no,P4
+Test-run a skill before enabling,automation,could,no,no,P4
+Auto-extract action items,actions,must,yes,no,P0
+Assign action item owners and due dates,actions,must,yes,no,P1
+Task list across all meetings,actions,must,yes,no,P2
+Push tasks to Jira Linear Asana ClickUp or Trello,actions,should,yes,no,P4
+Two-way task status sync,actions,could,no,no,P5
+Manual task creation,actions,should,yes,no,P2
+Keyword search across meetings,search,must,yes,no,P0
+Filter by speaker date folder channel and language,search,must,yes,no,P2
+Semantic search over transcripts and notes,search,must,yes,no,P0
+Ask AI across all meetings,search,must,yes,no,P3
+Scoped chat over a meeting folder channel person or selection,search,must,yes,no,P3
+Citations in chat answers,search,must,yes,no,P3
+Chat history,search,must,yes,no,P3
+Chat and Work modes (answer versus artifact),search,could,yes,no,P5; Otter
+Model selection for chat,search,should,yes,no,P3
+Suggested follow-up questions,search,should,yes,no,P3
+Export a chat answer,search,could,no,no,P5
+Pre-meeting brief from past meetings,briefs,should,yes,no,P3
+Brief sources from calendar notes CRM and web,briefs,could,yes,no,P4
+Follow-up email draft from the meeting,briefs,should,yes,no,P3
+Follow-up composer with attachments and undo,briefs,should,yes,no,P3
+Send via SMTP Gmail or Outlook,briefs,should,yes,no,P3
+Draft expiry and dismissal,briefs,should,yes,no,P3
+Private-by-default meetings,sharing,must,yes,no,P1
+Share to workspace domain or link,sharing,must,yes,no,P2
+Public recap page,sharing,must,yes,no,P2
+Collaborator versus viewer roles,sharing,must,yes,no,P2
+Threaded comments,sharing,must,yes,no,P2
+Highlights,sharing,must,yes,no,P2
+Bookmarks,sharing,must,yes,no,P2
+Soundbites and clips,sharing,must,yes,no,P3
+Playlists of clips,sharing,should,yes,no,P3
+Shared with me view,sharing,must,yes,no,P2
+Request access flow,sharing,should,yes,no,P2
+Folders,organization,must,yes,no,P2
+Spaces for personal team and custom grouping,organization,should,yes,no,P2
+Channels with channel-scoped chat,organization,should,yes,no,P3
+Auto-add recurring meetings to a folder,organization,should,yes,no,P2
+People directory built from meetings,organization,must,yes,no,P2
+Company directory,organization,should,yes,no,P3
+Tags,organization,should,yes,no,P2
+Trash and restore,organization,must,yes,no,P2
+Bulk move and delete,organization,must,yes,no,P2
+A meeting can live in multiple folders,organization,should,yes,no,P2
+Speaker talk-time analytics,analytics,should,yes,no,P3
+Monologues filler words and words per minute,analytics,should,yes,no,P3
+Questions asked per speaker,analytics,should,yes,no,P3
+Sentiment trends across meetings,analytics,should,yes,no,P4
+Topic trackers across meetings,analytics,should,yes,no,P4
+Conversation intelligence dashboard,analytics,should,yes,no,P4
+Team usage analytics,analytics,should,yes,no,P5
+Per-member adoption report,analytics,could,yes,no,P5
+Slack share and auto-post,integrations,must,yes,no,P4
+Notion export,integrations,should,yes,no,P4
+CRM sync HubSpot Salesforce Pipedrive Attio,integrations,should,yes,no,P4
+Project tool sync Jira Linear Asana ClickUp Monday Trello,integrations,should,yes,no,P4
+Google Drive and Docs export,integrations,should,yes,no,P4
+Zapier or n8n generic automation bridge,integrations,should,yes,no,P4
+Confluence and SharePoint export,integrations,could,yes,no,P5
+Snowflake or S3 warehouse export,integrations,could,yes,no,P5
+Calendar and email provider integrations,integrations,must,yes,no,P0
+REST API with scoped keys,api,must,yes,no,P4
+Webhooks with signing and retries,api,must,yes,no,P4
+MCP server for external AI clients,api,should,yes,no,P4
+GraphQL read API,api,could,yes,no,P5; Fireflies GraphQL
+Rate limits and quotas,api,should,yes,no,P4
+API documentation and OpenAPI spec,api,must,yes,no,P4
+CLI for admin and operations,api,must,no,no,P0
+Web application,clients,must,yes,no,P0
+Desktop application for macOS and Windows,clients,must,yes,no,P1
+Browser extension for Chrome and Chromium,clients,must,yes,no,P4
+Mobile apps for iOS and Android,clients,should,yes,no,P4
+Apple Watch and home-screen widgets,clients,could,yes,no,P5
+Consent record stored per meeting,security,must,yes,no,P0
+Recording indicator on every capture surface,security,must,yes,no,P0
+Transcript-only mode with zero audio retention,security,must,yes,no,P1; Granola
+Encryption at rest and in transit,security,must,yes,no,P0
+Data export for portability,security,must,yes,no,P2
+Account and workspace deletion,security,must,yes,no,P2
+Enforce SSO for the workspace,security,should,yes,no,P5
+IP allowlist,security,could,no,no,P5
+TOTP two-factor authentication,security,should,yes,no,P4
+Security headers and rate limiting,security,must,no,no,P0
+Docker Compose one-command deploy,ops,must,no,no,P0
+Local Whisper CPU and GPU profiles,ops,must,no,no,P0
+S3 or MinIO storage configuration,ops,must,no,no,P0
+Backup and restore scripts,ops,must,no,no,P1
+Health checks and metrics endpoint,ops,must,no,no,P1
+Upgrade and migration path,ops,must,no,no,P1
+Air-gapped offline mode,ops,could,no,no,P5
+Multi-architecture images amd64 and arm64,ops,should,no,no,P5
+Purchasable AI credits,skip,skip,yes,skip,Deliberate no; budget cap replaces it
+Per-seat plans trials and discounts,skip,skip,yes,skip,No billing in an OSS project
+Original brand assets names and copy,skip,skip,yes,skip,Their IP
+Voice cloning and outbound AI phone agents,skip,skip,yes,skip,Telephony compliance; out of scope
+Persistent biometric voiceprints,skip,skip,no,skip,Biometric data; not needed for diarization
+Google Meet bot joining,skip,skip,no,skip,No public API for a third-party bot
+Marketplace listing approval for Zoom and Teams,skip,skip,yes,skip,An approval process not a feature
+Original customer logos and testimonials,skip,skip,yes,skip,Not transferable
+Native app-store distribution,skip,skip,yes,skip,Ship self-hosted builds first
+Public recipe gallery content,skip,skip,yes,skip,Third-party authored content
+Original prompt and template libraries,skip,skip,yes,skip,Write our own prompts
+Competitor comparison claims,skip,skip,yes,skip,Marketing claims belong to the originals
