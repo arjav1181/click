@@ -78,8 +78,11 @@ replica/            recon, architecture, schema, design, screens
 ## Schema
 
 Tables: **63**. Migrations live in `packages/db/migrations`; the canonical DDL is
-`replica/schema.sql` (validated against PostgreSQL 16: 63 tables, 65 RLS
-policies, all tables RLS-enabled).
+`replica/schema.sql` (executed against PostgreSQL 16: 63 tables, 65 RLS
+policies, all 63 tables RLS-enabled. The local test instance had no pgvector,
+citext or pg_trgm, so those extension clauses, the `vector(1536)` column and the
+HNSW/trigram indexes were substituted during the test; they are exercised in
+the Docker image where the extensions are installed).
 
 Access rules: **PostgreSQL RLS for every tenant table, plus a repository layer
 that always injects `org_id`.** Every request opens a transaction and runs
@@ -108,6 +111,10 @@ Core decisions in the schema:
   path anywhere in the schema.
 - `retention_policies.recording_mode = 'transcript_only'` plus `audio_days = 0`
   is the zero-audio-retention mode.
+- Reporting views are `security_invoker = true`; without that a view runs as
+  its owner and silently bypasses RLS for every tenant.
+- Built-in templates have a null `org_id`, so they get an explicit read policy;
+  the generic org policy would hide them.
 
 ## API
 
@@ -473,7 +480,8 @@ parity diff; do not fill it with features.
 Stack: Next.js 16 + Postgres 16/pgvector + Drizzle + Auth.js + BullMQ/Redis +
 S3/MinIO, self-hosted with Docker Compose, BYOK ASR/LLM, no billing.
 
-Schema: 63 tables, 65 RLS policies, validated on PostgreSQL 16.
+Schema: 63 tables, 65 RLS policies, all tables RLS-enabled, DDL executed on
+PostgreSQL 16 (extensions substituted in the local test).
 
 API: 116 route rows, 3 internal bot endpoints, 11 outbound webhook events,
 14 background jobs.

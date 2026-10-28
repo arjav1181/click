@@ -993,16 +993,15 @@ create policy users_self_update on users
   using (id = nullif(current_setting('app.user_id', true), '')::uuid)
   with check (id = nullif(current_setting('app.user_id', true), '')::uuid);
 
--- memberships: only members of the org can read the roster
-alter table memberships enable row level security;
-create policy memberships_org on memberships
-  using (org_id = app_current_org())
-  with check (org_id = app_current_org());
+-- memberships is covered by the org_isolation policy from the loop above.
 
 -- ---------------------------------------------------------------------------
 -- reporting views
+-- security_invoker makes the view run with the caller's rights, so RLS on the
+-- underlying tables still applies. Without it a view runs as its owner and
+-- leaks every tenant's rows.
 -- ---------------------------------------------------------------------------
-create view v_meeting_overview as
+create view v_meeting_overview with (security_invoker = true) as
 select
   m.id,
   m.org_id,
@@ -1021,7 +1020,7 @@ from meetings m
 left join transcripts t on t.meeting_id = m.id
 where m.deleted_at is null;
 
-create view v_org_usage as
+create view v_org_usage with (security_invoker = true) as
 select
   org_id,
   date_trunc('month', period_start) as month,
@@ -1121,3 +1120,8 @@ create policy auth_identities_self on auth_identities
 -- global catalogue: readable by any authenticated session, writable only by migrations
 alter table integrations enable row level security;
 create policy integrations_read on integrations for select using (true);
+
+-- built-in templates have no org; they are readable by every workspace
+create policy templates_builtin on templates
+  for select
+  using (org_id is null and is_builtin);
