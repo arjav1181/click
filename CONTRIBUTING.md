@@ -5,7 +5,7 @@ Thanks for helping build an open, self-hostable AI meeting assistant.
 ## Ground rules
 
 1. **Clean room.** Do not copy code, assets, copy text, logos, or design files
-   from Fireflies.ai, Gronola, Otter.ai or any other product. Build from the
+   from Fireflies.ai, Granola, Otter.ai or any other product. Build from the
    written contracts in `replica/` and from first principles.
 2. **Public sources only.** No reverse engineering, no inspecting private APIs,
    no copying bundled JavaScript, no unlicensed assets.
