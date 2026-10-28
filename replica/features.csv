@@ -1,5 +1,5 @@
 feature,area,priority,original,clone,notes
-Email and password sign-up and sign-in,onboarding,must,yes,no,P0; Otter has email registration
+Email and password sign-up and sign-in,onboarding,must,yes,partial,P0; Otter has email registration; UI built in replica-build M0/M1; data layer is seed/fake until replica-backend
 CLI password reset for operators,onboarding,must,no,no,P0; self-hosted requirement
 Optional SMTP magic-link sign-in,onboarding,should,no,no,P1
 Google OAuth sign-in,onboarding,should,yes,no,P1; all three
@@ -9,7 +9,7 @@ SAML single sign-on,onboarding,should,yes,no,P5
 SCIM user provisioning,onboarding,could,yes,no,P5; Granola and Otter
 Email invite links for teammates,workspace,must,yes,no,P0
 Workspace creation and domain auto-join,workspace,should,yes,no,P2
-Guided onboarding (calendar capture providers retention),onboarding,must,yes,no,P0
+Guided onboarding (calendar capture providers retention),onboarding,must,yes,partial,P0; UI built in replica-build M0/M1; data layer is seed/fake until replica-backend
 Profile locale timezone and avatar,onboarding,must,yes,no,P0
 Roles owner admin member,workspace,must,yes,no,P0
 Groups for sharing and template assignment,workspace,should,yes,no,P3
@@ -28,7 +28,7 @@ SMTP storage and SSO configuration UI,workspace,must,no,no,P1
 Google Calendar sync,calendar,must,yes,no,P0
 Microsoft Outlook calendar sync,calendar,should,yes,no,P4
 Auto-join rules per calendar or event,calendar,must,yes,no,P1
-Upcoming meetings widget,calendar,must,yes,no,P0
+Upcoming meetings widget,calendar,must,yes,partial,P0; UI built in replica-build M0/M1; data layer is seed/fake until replica-backend
 Calendar event detail with past-meeting context,calendar,should,yes,no,P2
 Bot joins Zoom meetings,bot,must,yes,no,P1
 Bot joins Microsoft Teams meetings,bot,should,yes,no,P4
@@ -52,9 +52,9 @@ Mobile in-person recording,botless,must,yes,no,P4
 Browser microphone recorder,botless,could,yes,no,P4
 Snapshots of shared screens during capture,botless,could,yes,no,P4; Granola and Otter
 Botless capture that works with headphones,botless,must,yes,no,P0
-Upload audio or video up to 5 GB,import,must,yes,no,P0
+Upload audio or video up to 5 GB,import,must,yes,partial,P0; UI built in replica-build M0/M1; data layer is seed/fake until replica-backend
 Common audio and video codecs with detection,import,must,yes,no,P0
-Import progress cancel and retry,import,must,yes,no,P0
+Import progress cancel and retry,import,must,yes,partial,P0; UI built in replica-build M0/M1; data layer is seed/fake until replica-backend
 Import from a URL,import,could,no,no,P5
 Duplicate upload detection,import,should,no,no,P3
 Local Whisper ASR as the default provider,transcription,must,no,no,P0; originals are cloud-only
@@ -88,14 +88,14 @@ Live highlights and comments,live,should,yes,no,P2; Otter
 Post an AI answer into meeting chat,live,should,yes,no,P2
 Agenda tracking and private live coaching,live,could,yes,no,P5; Otter Live Assist
 Automatic summary after the meeting,notes,must,yes,no,P0
-Raw notes canvas that steers the summary,notes,must,yes,no,P0; Granola
-Enhanced notes with regenerate,notes,must,yes,no,P0
-Section-based summaries (overview decisions risks),notes,must,yes,no,P0
+Raw notes canvas that steers the summary,notes,must,yes,partial,P0; Granola; UI built in replica-build M0/M1; data layer is seed/fake until replica-backend
+Enhanced notes with regenerate,notes,must,yes,partial,P0; UI built in replica-build M0/M1; data layer is seed/fake until replica-backend
+Section-based summaries (overview decisions risks),notes,must,yes,partial,P0; UI built in replica-build M0/M1; data layer is seed/fake until replica-backend
 Concise versus detailed summary length,notes,must,yes,no,P1
-Citation chips back to transcript segments,notes,must,yes,no,P0
+Citation chips back to transcript segments,notes,must,yes,partial,P0; UI built in replica-build M0/M1; data layer is seed/fake until replica-backend
 Accessible provenance labels for human versus AI text,notes,must,no,no,P0; replaces Granola colour convention
-Template-driven summary structure,notes,must,yes,no,P1
-Regenerate with a different template,notes,must,yes,no,P1
+Template-driven summary structure,notes,must,yes,partial,P1; UI built in replica-build M0/M1; data layer is seed/fake until replica-backend
+Regenerate with a different template,notes,must,yes,partial,P1; UI built in replica-build M0/M1; data layer is seed/fake until replica-backend
 Inline summary editing,notes,must,yes,no,P0
 Summary staleness after transcript edits,notes,should,no,no,P2
 Keyword extraction,notes,must,yes,no,P1
@@ -112,18 +112,18 @@ Scheduled skills per meeting daily weekly monthly,automation,should,yes,no,P3
 Skill output feed,automation,should,yes,no,P3
 Route skill outputs to integrations,automation,should,yes,no,P4
 Test-run a skill before enabling,automation,could,no,no,P4
-Auto-extract action items,actions,must,yes,no,P0
+Auto-extract action items,actions,must,yes,partial,P0; UI built in replica-build M0/M1; data layer is seed/fake until replica-backend
 Assign action item owners and due dates,actions,must,yes,no,P1
 Task list across all meetings,actions,must,yes,no,P2
 Push tasks to Jira Linear Asana ClickUp or Trello,actions,should,yes,no,P4
 Two-way task status sync,actions,could,no,no,P5
 Manual task creation,actions,should,yes,no,P2
-Keyword search across meetings,search,must,yes,no,P0
+Keyword search across meetings,search,must,yes,partial,P0; UI built in replica-build M0/M1; data layer is seed/fake until replica-backend
 Filter by speaker date folder channel and language,search,must,yes,no,P2
 Semantic search over transcripts and notes,search,must,yes,no,P0
-Ask AI across all meetings,search,must,yes,no,P3
+Ask AI across all meetings,search,must,yes,partial,P3; UI built in replica-build M0/M1; data layer is seed/fake until replica-backend
 Scoped chat over a meeting folder channel person or selection,search,must,yes,no,P3
-Citations in chat answers,search,must,yes,no,P3
+Citations in chat answers,search,must,yes,partial,P3; UI built in replica-build M0/M1; data layer is seed/fake until replica-backend
 Chat history,search,must,yes,no,P3
 Chat and Work modes (answer versus artifact),search,could,yes,no,P5; Otter
 Model selection for chat,search,should,yes,no,P3

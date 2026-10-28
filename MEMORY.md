@@ -76,8 +76,7 @@ M0 foundation → M1 vertical slice (upload/transcribe/summary/search) → M2 bo
 5. Trademark sweep for "Click".
 
 ## Next steps
-- /replica-design complete. Next: /replica-build.
-- Then /replica-build.
+- /replica-build M0/M1 done. Next: /replica-backend (real auth, DB, storage, ASR/LLM, jobs) then continue M2+ screens.
 - Record in MEMORY.md after each phase.
 
 ## Notes

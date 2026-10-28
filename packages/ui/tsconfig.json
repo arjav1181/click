@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@click/ui": ["./src/index.ts"],
+      "@click/ui/*": ["./src/*"]
+    }
+  },
+  "include": ["src/**/*"]
+}
