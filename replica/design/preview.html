@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Click design system preview</title>
+<link rel="stylesheet" href="tokens.css" />
+<style>
+  body { padding: 40px; }
+  .page { max-width: 1200px; margin: 0 auto; display: grid; gap: 40px; }
+  h1 { font-size: var(--text-display-size); line-height: var(--text-display-line); font-weight: var(--text-display-weight); margin: 0; }
+  h2 { font-size: var(--text-xl-size); line-height: var(--text-xl-line); font-weight: var(--text-xl-weight); margin: 0 0 16px; }
+  h3 { font-size: var(--text-lg-size); line-height: var(--text-lg-line); font-weight: var(--text-lg-weight); margin: 0 0 8px; }
+  p { margin: 0 0 8px; color: var(--color-text-muted); }
+  section { display: grid; gap: 16px; }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+  .swatch { border-radius: var(--radius-md); border: 1px solid var(--color-border); overflow: hidden; }
+  .swatch .chip { height: 56px; }
+  .swatch .meta { padding: 8px; font-size: var(--text-xs-size); color: var(--color-text-muted); }
+  .swatch .meta strong { color: var(--color-text); font-weight: 600; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: var(--radius-md); font-size: var(--text-sm-size); font-weight: 600; border: 1px solid transparent; cursor: pointer; transition: all var(--motion-base) var(--motion-ease); }
+  .btn-sm { height: 32px; padding: 0 12px; font-size: var(--text-xs-size); }
+  .btn-lg { height: 48px; padding: 0 20px; }
+  .btn-primary { background: var(--color-accent); color: var(--color-on-accent); }
+  .btn-primary:hover { filter: brightness(1.05); box-shadow: var(--shadow-card); }
+  .btn-secondary { background: var(--color-surface); color: var(--color-text); border-color: var(--color-border); }
+  .btn-secondary:hover { background: var(--color-surface-2); }
+  .btn-ghost { background: transparent; color: var(--color-text); }
+  .btn-ghost:hover { background: var(--color-surface-2); }
+  .btn-danger { background: var(--color-danger); color: var(--color-on-danger); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .input { height: 40px; padding: 0 12px; border-radius: var(--radius-md); border: 1px solid var(--color-border-input); background: var(--color-surface); color: var(--color-text); font-size: var(--text-base-size); width: 260px; }
+  .input:focus { border-color: var(--color-focus); box-shadow: 0 0 0 2px var(--color-accent-soft); outline: none; }
+  .input.invalid { border-color: var(--color-danger); background: var(--color-danger-soft); }
+  .badge { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px; border-radius: var(--radius-pill); font-size: var(--text-xs-size); font-weight: 500; }
+  .badge-neutral { background: var(--color-surface-2); color: var(--color-text-muted); }
+  .badge-accent { background: var(--color-accent-soft); color: var(--color-accent); }
+  .badge-success { background: var(--color-success-soft); color: var(--color-success); }
+  .badge-danger { background: var(--color-danger-soft); color: var(--color-danger); }
+  .badge-warning { background: var(--color-warning-soft); color: var(--color-warning); }
+  .card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); padding: 20px; }
+  .tabs { display: inline-flex; gap: 4px; background: var(--color-surface-2); padding: 4px; border-radius: var(--radius-md); }
+  .tab { padding: 6px 12px; border-radius: var(--radius-sm); font-size: var(--text-sm-size); color: var(--color-text-muted); cursor: pointer; }
+  .tab.active { background: var(--color-surface); color: var(--color-text); box-shadow: var(--shadow-card); }
+  table { width: 100%; border-collapse: collapse; font-size: var(--text-sm-size); }
+  th { text-align: left; padding: 10px 12px; background: var(--color-surface-2); color: var(--color-text-muted); font-weight: 600; border-bottom: 1px solid var(--color-border); }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--color-border); }
+  tr:hover td { background: var(--color-surface-2); }
+  .seg { display: grid; grid-template-columns: 36px 1fr; gap: 12px; padding: 8px 0; }
+  .seg .who { font-size: var(--text-xs-size); font-weight: 600; color: var(--color-accent); }
+  .seg .time { font-family: var(--font-mono); font-size: var(--text-xs-size); color: var(--color-text-muted); }
+  .seg .text { font-size: var(--text-base-size); line-height: var(--text-base-line); }
+  .chip { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 8px; border-radius: var(--radius-pill); font-size: var(--text-xs-size); font-weight: 500; }
+  .chip-you { background: var(--color-surface-2); color: var(--color-text); }
+  .chip-ai { background: var(--color-accent-soft); color: var(--color-accent); }
+  .chip-ts { background: var(--color-surface-2); color: var(--color-text-muted); font-family: var(--font-mono); }
+  .toast { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-pop); max-width: 360px; }
+  .toast .bar { width: 4px; align-self: stretch; border-radius: var(--radius-pill); background: var(--color-success); }
+  .banner { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--color-warning); background: var(--color-warning-soft); color: var(--color-warning); font-size: var(--text-sm-size); }
+  .skel { background: var(--color-surface-2); border-radius: var(--radius-sm); height: 12px; }
+  .rec { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-xs-size); font-weight: 600; color: var(--color-danger); }
+  .rec::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--color-danger); animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+  .empty { text-align: center; padding: 40px 20px; }
+  .empty h3 { color: var(--color-text); }
+  .empty p { max-width: 360px; margin: 0 auto 16px; }
+  .dialog { background: var(--color-surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-pop); padding: 24px; max-width: 480px; border: 1px solid var(--color-border); }
+  .dialog h3 { margin-bottom: 8px; }
+  .dialog .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+  .space-demo { display: flex; gap: var(--space-4); }
+  .space-box { width: 40px; height: 40px; background: var(--color-accent-soft); border: 1px dashed var(--color-accent); border-radius: var(--radius-sm); }
+  .reading { font-family: var(--font-reading); font-size: 17px; line-height: 28px; max-width: 640px; }
+  .kbd { font-family: var(--font-mono); font-size: var(--text-xs-size); padding: 2px 6px; background: var(--color-surface-2); border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
+  .theme-toggle { position: fixed; top: 16px; right: 16px; }
+</style>
+</head>
+<body>
+<div class="theme-toggle">
+  <button class="btn btn-secondary btn-sm" onclick="document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'">Toggle theme</button>
+</div>
+<div class="page">
+  <header>
+    <h1>Click</h1>
+    <p class="reading">Design system preview — tokens, primitives, states. Toggle theme top-right.</p>
+  </header>
+
+  <section>
+    <h2>Colour roles</h2>
+    <div class="grid" id="swatches"></div>
+  </section>
+
+  <section>
+    <h2>Type scale</h2>
+    <div style="display:grid; gap:4px;">
+      <div style="font-size:var(--text-display-size); font-weight:var(--text-display-weight); line-height:var(--text-display-line);">Display 40 — The quick brown fox</div>
+      <div style="font-size:var(--text-xl-size); font-weight:var(--text-xl-weight); line-height:var(--text-xl-line);">XL 28 — The quick brown fox</div>
+      <div style="font-size:var(--text-lg-size); font-weight:var(--text-lg-weight); line-height:var(--text-lg-line);">LG 20 — The quick brown fox</div>
+      <div style="font-size:var(--text-base-size); line-height:var(--text-base-line);">Base 16 — The quick brown fox jumps over the lazy dog.</div>
+      <div style="font-size:var(--text-sm-size); line-height:var(--text-sm-line); color:var(--color-text-muted);">SM 14 — The quick brown fox jumps over the lazy dog.</div>
+      <div style="font-size:var(--text-xs-size); line-height:var(--text-xs-line); color:var(--color-text-muted);">XS 12 — THE QUICK BROWN FOX</div>
+      <p class="reading">Reading 17 — Long-form notes use Source Serif 4 for a calm, book-like surface that stays readable across long transcripts.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Spacing (4px base)</h2>
+    <div class="space-demo">
+      <div class="space-box" style="margin-right:var(--space-1)"></div>
+      <div class="space-box" style="margin-right:var(--space-2)"></div>
+      <div class="space-box" style="margin-right:var(--space-3)"></div>
+      <div class="space-box" style="margin-right:var(--space-4)"></div>
+      <div class="space-box" style="margin-right:var(--space-6)"></div>
+      <div class="space-box"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Buttons</h2>
+    <div class="row">
+      <button class="btn btn-primary">Primary</button>
+      <button class="btn btn-secondary">Secondary</button>
+      <button class="btn btn-ghost">Ghost</button>
+      <button class="btn btn-danger">Danger</button>
+      <button class="btn btn-primary btn-sm">Small</button>
+      <button class="btn btn-primary btn-lg">Large</button>
+      <button class="btn btn-primary" disabled>Loading…</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Inputs</h2>
+    <div class="row">
+      <input class="input" placeholder="Search meetings…" />
+      <input class="input" value="Invalid value" />
+      <input class="input invalid" value="Invalid value" />
+      <input class="input" disabled value="Disabled" />
+    </div>
+  </section>
+
+  <section>
+    <h2>Badges</h2>
+    <div class="row">
+      <span class="badge badge-neutral">Neutral</span>
+      <span class="badge badge-accent">Accent</span>
+      <span class="badge badge-success">Success</span>
+      <span class="badge badge-warning">Warning</span>
+      <span class="badge badge-danger">Danger</span>
+      <span class="chip chip-you">you</span>
+      <span class="chip chip-ai">AI</span>
+      <span class="chip chip-ts">12:34</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>Tabs</h2>
+    <div class="tabs">
+      <div class="tab active">Notes</div>
+      <div class="tab">Transcript</div>
+      <div class="tab">Insights</div>
+      <div class="tab">Comments</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Table</h2>
+    <div class="card" style="padding:0; overflow:hidden;">
+      <table>
+        <thead><tr><th>Meeting</th><th>Owner</th><th>Duration</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>Q3 planning sync</td><td>Ava Chen</td><td>42 min</td><td><span class="badge badge-success">Ready</span></td></tr>
+          <tr><td>Customer call — Acme</td><td>Sam Park</td><td>18 min</td><td><span class="badge badge-accent">Processing</span></td></tr>
+          <tr><td>1:1 with Jordan</td><td>Ava Chen</td><td>30 min</td><td><span class="badge badge-neutral">Draft</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Transcript segment</h2>
+    <div class="card">
+      <div class="seg">
+        <div><div class="who">Ava</div><div class="time">00:12</div></div>
+        <div class="text">Let's lock the launch date. I'd suggest the 14th so marketing has a week. <span class="chip chip-ts">12:34</span></div>
+      </div>
+      <div class="seg">
+        <div><div class="who" style="color:var(--color-text-muted)">Sam</div><div class="time">00:18</div></div>
+        <div class="text" style="background:var(--color-accent-soft); padding:4px 8px; border-radius:var(--radius-sm);">Works for me. <span class="chip chip-ai">AI</span> <span class="chip chip-ts">12:41</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>States</h2>
+    <div class="row">
+      <div class="toast"><div class="bar"></div><div><strong>Saved</strong><br/>Notes updated.</div></div>
+      <div class="banner">⚠ AI budget at 80% — increase the cap in admin settings.</div>
+    </div>
+    <div class="card">
+      <div class="rec">Recording</div>
+      <div style="margin-top:12px; display:grid; gap:8px;">
+        <div class="skel" style="width:80%"></div>
+        <div class="skel" style="width:60%"></div>
+        <div class="skel" style="width:72%"></div>
+      </div>
+    </div>
+    <div class="empty">
+      <h3>No meetings yet</h3>
+      <p>Connect your calendar or upload a recording to get started.</p>
+      <button class="btn btn-primary">Connect calendar</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Dialog</h2>
+    <div class="dialog">
+      <h3>Delete meeting?</h3>
+      <p style="color:var(--color-text-muted);">This moves it to trash for 30 days. You can restore it later.</p>
+      <div class="actions">
+        <button class="btn btn-secondary">Cancel</button>
+        <button class="btn btn-danger">Delete</button>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Keyboard</h2>
+    <p>Press <span class="kbd">⌘</span> <span class="kbd">K</span> to open the command menu, <span class="kbd">Space</span> to play/pause.</p>
+  </section>
+</div>
+
+<script>
+const colors = {
+  bg: 'var(--color-bg)', surface: 'var(--color-surface)', 'surface-2': 'var(--color-surface-2)',
+  border: 'var(--color-border)', 'border-input': 'var(--color-border-input)', text: 'var(--color-text)',
+  'text-muted': 'var(--color-text-muted)', accent: 'var(--color-accent)', 'on-accent': 'var(--color-on-accent)',
+  'accent-soft': 'var(--color-accent-soft)', danger: 'var(--color-danger)', 'on-danger': 'var(--color-on-danger)',
+  'danger-soft': 'var(--color-danger-soft)', success: 'var(--color-success)', 'success-soft': 'var(--color-success-soft)',
+  warning: 'var(--color-warning)', 'warning-soft': 'var(--color-warning-soft)', focus: 'var(--color-focus)',
+};
+const grid = document.getElementById('swatches');
+for (const [name, val] of Object.entries(colors)) {
+  const d = document.createElement('div');
+  d.className = 'swatch';
+  d.innerHTML = `<div class="chip" style="background:${val}; height:56px;"></div><div class="meta"><strong>${name}</strong><br/>${val}</div>`;
+  grid.appendChild(d);
+}
+</script>
+</body>
+</html>

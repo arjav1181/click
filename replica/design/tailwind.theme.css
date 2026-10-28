@@ -1,0 +1,74 @@
+/* Click Tailwind v4 theme — maps design tokens to utility classes.
+   Import after tokens.css in your global stylesheet:
+
+     @import "./tokens.css";
+     @import "./tailwind.theme.css";
+     @import "tailwindcss";
+
+   Then use utilities like: bg-bg, text-text, text-text-muted, bg-surface,
+   bg-surface-2, border-border, border-border-input, bg-accent, text-on-accent,
+   bg-accent-soft, text-danger, bg-danger-soft, rounded-md, shadow-card, etc.
+*/
+
+@theme inline {
+  /* colours */
+  --color-bg: var(--color-bg);
+  --color-surface: var(--color-surface);
+  --color-surface-2: var(--color-surface-2);
+  --color-border: var(--color-border);
+  --color-border-input: var(--color-border-input);
+  --color-text: var(--color-text);
+  --color-text-muted: var(--color-text-muted);
+  --color-accent: var(--color-accent);
+  --color-on-accent: var(--color-on-accent);
+  --color-accent-soft: var(--color-accent-soft);
+  --color-danger: var(--color-danger);
+  --color-on-danger: var(--color-on-danger);
+  --color-danger-soft: var(--color-danger-soft);
+  --color-success: var(--color-success);
+  --color-success-soft: var(--color-success-soft);
+  --color-warning: var(--color-warning);
+  --color-warning-soft: var(--color-warning-soft);
+  --color-focus: var(--color-focus);
+
+  /* fonts */
+  --font-sans: var(--font-sans);
+  --font-reading: var(--font-reading);
+  --font-mono: var(--font-mono);
+
+  /* type scale (size + line-height) */
+  --text-xs: var(--text-xs-size);
+  --text-xs--line-height: var(--text-xs-line);
+  --text-sm: var(--text-sm-size);
+  --text-sm--line-height: var(--text-sm-line);
+  --text-base: var(--text-base-size);
+  --text-base--line-height: var(--text-base-line);
+  --text-lg: var(--text-lg-size);
+  --text-lg--line-height: var(--text-lg-line);
+  --text-xl: var(--text-xl-size);
+  --text-xl--line-height: var(--text-xl-line);
+  --text-display: var(--text-display-size);
+  --text-display--line-height: var(--text-display-line);
+
+  /* radius */
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-pill: var(--radius-pill);
+
+  /* shadows */
+  --shadow-card: var(--shadow-card);
+  --shadow-pop: var(--shadow-pop);
+
+  /* spacing scale (4px base) */
+  --spacing-0: 0px;
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+  --spacing-12: 48px;
+  --spacing-16: 64px;
+}
