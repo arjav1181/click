@@ -4,7 +4,9 @@
 > transcribes with speaker labels, writes structured notes and summaries, and
 > lets you ask questions across every meeting you have ever had.
 
-Status: **architecture complete** — see [`replica/architecture.md`](replica/architecture.md).
+Status: **build in progress** — app shell + vertical slice (M0/M1) landed; see
+[`replica/build-log.md`](replica/build-log.md). Architecture:
+[`replica/architecture.md`](replica/architecture.md).
 
 Click is a clean-room rebuild of the *functionality and UX patterns* of three
 public products (Fireflies.ai, Granola, Otter.ai) — the union of their features,
