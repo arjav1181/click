@@ -743,7 +743,7 @@ honest and it still matches the user-facing loop of all three originals.
 
 ## Size
 
-Screens 74, flows 17, entities 43. Hard parts: real-time streaming ASR with
+Screens 74, flows 17, entities 51. Hard parts: real-time streaming ASR with
 speaker diarization; meeting-bot lifecycle across three providers with lobby and
 consent handling; durable job orchestration for long recordings; LLM summaries
 with trustworthy citations back to transcript segments; cross-meeting semantic
