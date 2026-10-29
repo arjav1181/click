@@ -113,8 +113,8 @@ Skill output feed,automation,should,yes,no,P3
 Route skill outputs to integrations,automation,should,yes,no,P4
 Test-run a skill before enabling,automation,could,no,no,P4
 Auto-extract action items,actions,must,yes,yes,P0; done in replica-backend: summarize job writes action_items with a source segment
-Assign action item owners and due dates,actions,must,yes,partial,P1; action item rows carry assignee and due date, assignment UI not built
-Task list across all meetings,actions,must,yes,partial,P0; GET /api/v1/action-items returns every tenant action item
+Assign action item owners and due dates,actions,must,yes,partial,P1; action item rows carry assignee and due date; editing owners not yet in the UI, assignment UI not built
+Task list across all meetings,actions,must,yes,yes,P0; S36 tasks screen: status filters, grouping, bulk update and CSV export against GET /api/v1/action-items
 Push tasks to Jira Linear Asana ClickUp or Trello,actions,should,yes,no,P4
 Two-way task status sync,actions,could,no,no,P5
 Manual task creation,actions,should,yes,no,P2

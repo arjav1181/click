@@ -40,3 +40,4 @@ Screens below moved from the bundled demo data to the real API. See
 - S55 | 2026-10-29 | partial | Retention and budget settings shown in the usage endpoint; editing not yet.
 - New | 2026-10-29 | done | Forgot-password, reset-password, verify-email and invite-accept pages wired to the API.
 - New | 2026-10-29 | done | Shell header shows the signed-in user and workspace and signs out.
+- S36 | 2026-10-29 | done | Tasks screen over GET /api/v1/action-items: status and text filters, grouping by meeting/due/owner, bulk complete, CSV export, overdue badges.
