@@ -361,6 +361,159 @@ await q(
   [IDS.org, IDS.ava, IDS.meeting1],
 );
 
+// A short admin history so the audit log screen has something to show. Every
+// row carries a fixed id, so re-running the seed never duplicates an event.
+const auditHistory: Array<{
+  id: string;
+  actor: string;
+  action: string;
+  targetType: string;
+  targetId: string;
+  metadata: Record<string, unknown>;
+  ip: string;
+  at: string;
+}> = [
+  {
+    id: "a0000000-0000-4000-8000-000000000001",
+    actor: IDS.ava,
+    action: "org.updated",
+    targetType: "organization",
+    targetId: IDS.org,
+    metadata: { fields: ["name"] },
+    ip: "127.0.0.1",
+    at: at(-28, 9),
+  },
+  {
+    id: "a0000000-0000-4000-8000-000000000002",
+    actor: IDS.ava,
+    action: "member.invited",
+    targetType: "invitation",
+    targetId: IDS.jordan,
+    metadata: { role: "member" },
+    ip: "127.0.0.1",
+    at: at(-24, 14),
+  },
+  {
+    id: "a0000000-0000-4000-8000-000000000003",
+    actor: IDS.ava,
+    action: "member.updated",
+    targetType: "user",
+    targetId: IDS.sam,
+    metadata: { role: "admin" },
+    ip: "127.0.0.1",
+    at: at(-21, 11),
+  },
+  {
+    id: "a0000000-0000-4000-8000-000000000004",
+    actor: IDS.sam,
+    action: "meeting.created",
+    targetType: "meeting",
+    targetId: IDS.meeting2,
+    metadata: { source: "upload" },
+    ip: "10.0.0.14",
+    at: at(-14, 15),
+  },
+  {
+    id: "a0000000-0000-4000-8000-000000000005",
+    actor: IDS.sam,
+    action: "meeting.exported",
+    targetType: "meeting",
+    targetId: IDS.meeting2,
+    metadata: { format: "markdown" },
+    ip: "10.0.0.14",
+    at: at(-12, 16),
+  },
+  {
+    id: "a0000000-0000-4000-8000-000000000006",
+    actor: IDS.ava,
+    action: "channel.updated",
+    targetType: "channel",
+    targetId: IDS.channel,
+    metadata: { visibility: "public" },
+    ip: "127.0.0.1",
+    at: at(-9, 10),
+  },
+  {
+    id: "a0000000-0000-4000-8000-000000000007",
+    actor: IDS.maya,
+    action: "profile.updated",
+    targetType: "user",
+    targetId: IDS.maya,
+    metadata: { fields: ["timezone"] },
+    ip: "10.0.0.31",
+    at: at(-6, 13),
+  },
+  {
+    id: "a0000000-0000-4000-8000-000000000008",
+    actor: IDS.ava,
+    action: "member.updated",
+    targetType: "user",
+    targetId: IDS.maya,
+    metadata: { status: "deactivated" },
+    ip: "127.0.0.1",
+    at: at(-4, 17),
+  },
+  {
+    id: "a0000000-0000-4000-8000-000000000009",
+    actor: IDS.ava,
+    action: "member.updated",
+    targetType: "user",
+    targetId: IDS.maya,
+    metadata: { status: "active" },
+    ip: "127.0.0.1",
+    at: at(-3, 9),
+  },
+  {
+    id: "a0000000-0000-4000-8000-000000000010",
+    actor: IDS.sam,
+    action: "meeting.created",
+    targetType: "meeting",
+    targetId: IDS.meeting3,
+    metadata: { source: "calendar" },
+    ip: "10.0.0.14",
+    at: at(-2, 8),
+  },
+  {
+    id: "a0000000-0000-4000-8000-000000000011",
+    actor: IDS.sam,
+    action: "meeting.exported",
+    targetType: "meeting",
+    targetId: IDS.meeting1,
+    metadata: { format: "pdf" },
+    ip: "10.0.0.14",
+    at: at(-1, 12),
+  },
+  {
+    id: "a0000000-0000-4000-8000-000000000012",
+    actor: IDS.ava,
+    action: "org.updated",
+    targetType: "organization",
+    targetId: IDS.org,
+    metadata: { fields: ["domainAllowlist"] },
+    ip: "127.0.0.1",
+    at: at(0, 8),
+  },
+];
+
+for (const event of auditHistory) {
+  await q(
+    `insert into audit_events (id, org_id, actor_id, action, target_type, target_id, metadata, ip, created_at)
+     values ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9)
+     on conflict (id) do nothing`,
+    [
+      event.id,
+      IDS.org,
+      event.actor,
+      event.action,
+      event.targetType,
+      event.targetId,
+      JSON.stringify(event.metadata),
+      event.ip,
+      event.at,
+    ],
+  );
+}
+
 console.log("seeded demo workspace");
 console.log("  org:   demo");
 console.log("  users: ava@click.local / sam@click.local / maya@click.local");

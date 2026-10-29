@@ -243,23 +243,56 @@ export async function listMembers(ctx: TenantContext) {
   });
 }
 
-export async function listAuditEvents(ctx: TenantContext, limit = 50) {
+export interface AuditEventFilters {
+  action?: string;
+  actorId?: string;
+  targetType?: string;
+  since?: Date;
+  until?: Date;
+  limit?: number;
+  offset?: number;
+}
+
+export async function listAuditEvents(ctx: TenantContext, filters: AuditEventFilters = {}) {
   return withTenant(ctx, async (tx) => {
+    const conditions = [];
+    if (filters.action) conditions.push(eq(auditEvents.action, filters.action));
+    if (filters.actorId) conditions.push(eq(auditEvents.actorId, filters.actorId));
+    if (filters.targetType) conditions.push(eq(auditEvents.targetType, filters.targetType));
+    if (filters.since) conditions.push(sql`${auditEvents.createdAt} >= ${filters.since}`);
+    if (filters.until) conditions.push(sql`${auditEvents.createdAt} <= ${filters.until}`);
+    const limit = Math.min(Math.max(filters.limit ?? 50, 1), 200);
+    const offset = Math.max(filters.offset ?? 0, 0);
     const rows = await tx
       .select({
         id: auditEvents.id,
         action: auditEvents.action,
         targetType: auditEvents.targetType,
         targetId: auditEvents.targetId,
+        metadata: auditEvents.metadata,
         createdAt: auditEvents.createdAt,
         ip: auditEvents.ip,
+        actorId: auditEvents.actorId,
         actorName: users.name,
       })
       .from(auditEvents)
       .leftJoin(users, eq(users.id, auditEvents.actorId))
-      .orderBy(sql`created_at desc`)
-      .limit(Math.min(limit, 200));
+      .where(conditions.length ? and(...conditions) : undefined)
+      .orderBy(sql`${auditEvents.createdAt} desc`)
+      .limit(limit)
+      .offset(offset);
     return rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() }));
+  });
+}
+
+/** Distinct action names seen in the workspace, for the audit filter dropdown. */
+export async function listAuditActions(ctx: TenantContext) {
+  return withTenant(ctx, async (tx) => {
+    const rows = await tx
+      .selectDistinct({ action: auditEvents.action })
+      .from(auditEvents)
+      .orderBy(asc(auditEvents.action));
+    return rows.map((row) => row.action);
   });
 }
 
