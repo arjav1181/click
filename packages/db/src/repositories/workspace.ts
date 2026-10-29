@@ -1,6 +1,18 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 import { withTenant, type TenantContext } from "../client";
-import { actionItems, auditEvents, channels, folders, memberships, meetings, organizations, spaces, users, usageMeters } from "../schema";
+import {
+  actionItems,
+  auditEvents,
+  channelMembers,
+  channels,
+  folders,
+  memberships,
+  meetings,
+  organizations,
+  spaces,
+  users,
+  usageMeters,
+} from "../schema";
 
 export async function listActionItems(ctx: TenantContext, status?: string) {
   return withTenant(ctx, async (tx) => {
@@ -139,11 +151,78 @@ export async function listChannels(ctx: TenantContext) {
         id: channels.id,
         name: channels.name,
         visibility: channels.visibility,
+        description: channels.description,
         archivedAt: channels.archivedAt,
+        memberCount: sql<number>`(select count(*)::int from channel_members cm where cm.channel_id = ${sql.raw('"channels"."id"')})`,
         meetingCount: sql<number>`(select count(*)::int from meeting_channels mc where mc.channel_id = ${sql.raw('"channels"."id"')})`,
       })
       .from(channels)
       .orderBy(asc(channels.name));
+  });
+}
+
+export async function getChannel(ctx: TenantContext, id: string) {
+  return withTenant(ctx, async (tx) => {
+    const rows = await tx
+      .select({
+        id: channels.id,
+        name: channels.name,
+        visibility: channels.visibility,
+        description: channels.description,
+        archivedAt: channels.archivedAt,
+        memberCount: sql<number>`(select count(*)::int from channel_members cm where cm.channel_id = ${sql.raw('"channels"."id"')})`,
+        meetingCount: sql<number>`(select count(*)::int from meeting_channels mc where mc.channel_id = ${sql.raw('"channels"."id"')})`,
+      })
+      .from(channels)
+      .where(eq(channels.id, id))
+      .limit(1);
+    return rows[0] ?? null;
+  });
+}
+
+export async function listChannelMembers(ctx: TenantContext, id: string) {
+  return withTenant(ctx, async (tx) => {
+    return tx
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        role: memberships.role,
+      })
+      .from(channelMembers)
+      .innerJoin(users, eq(users.id, channelMembers.userId))
+      .leftJoin(
+        memberships,
+        and(eq(memberships.userId, users.id), eq(memberships.orgId, ctx.orgId)),
+      )
+      .where(eq(channelMembers.channelId, id))
+      .orderBy(asc(users.name));
+  });
+}
+
+export async function updateChannel(
+  ctx: TenantContext,
+  id: string,
+  patch: {
+    name?: string;
+    description?: string | null;
+    visibility?: "public" | "private";
+    archived?: boolean;
+  },
+) {
+  return withTenant(ctx, async (tx) => {
+    const values: Record<string, unknown> = {};
+    if (patch.name !== undefined) values.name = patch.name.slice(0, 120);
+    if (patch.description !== undefined) values.description = patch.description;
+    if (patch.visibility !== undefined) values.visibility = patch.visibility;
+    if (patch.archived !== undefined) values.archivedAt = patch.archived ? new Date() : null;
+    if (Object.keys(values).length === 0) return false;
+    const rows = await tx
+      .update(channels)
+      .set(values)
+      .where(eq(channels.id, id))
+      .returning({ id: channels.id });
+    return rows.length > 0;
   });
 }
 

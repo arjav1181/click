@@ -90,7 +90,7 @@ const map = (row: Row): MeetingListItem => ({
 
 export async function listMeetings(
   ctx: TenantContext,
-  filters: { q?: string; status?: string; folderId?: string; limit?: number } = {},
+  filters: { q?: string; status?: string; folderId?: string; channelId?: string; limit?: number } = {},
 ): Promise<{ meetings: MeetingListItem[]; total: number }> {
   return withTenant(ctx, async (tx) => {
     const conditions = [isNull(meetings.deletedAt)];
@@ -99,6 +99,11 @@ export async function listMeetings(
     if (filters.folderId) {
       conditions.push(
         sql`exists (select 1 from ${meetingFolders} mf where mf.meeting_id = ${meetings.id} and mf.folder_id = ${filters.folderId})`,
+      );
+    }
+    if (filters.channelId) {
+      conditions.push(
+        sql`exists (select 1 from meeting_channels mc where mc.meeting_id = ${meetingId} and mc.channel_id = ${filters.channelId})`,
       );
     }
 

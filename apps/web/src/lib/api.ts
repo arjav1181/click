@@ -374,6 +374,69 @@ export async function moveMeetingToFolder(
   });
 }
 
+export interface ChannelRow {
+  id: string;
+  name: string;
+  visibility: "public" | "private";
+  description: string | null;
+  archivedAt: string | null;
+  memberCount: number;
+  meetingCount: number;
+}
+
+export interface ChannelMemberRow {
+  id: string;
+  name: string;
+  email: string;
+  role: string | null;
+}
+
+export async function fetchChannels(): Promise<ApiResult<{ channels: ChannelRow[] }>> {
+  return apiFetch<{ channels: ChannelRow[] }>("/api/v1/channels");
+}
+
+export async function fetchChannel(
+  id: string,
+): Promise<ApiResult<{ channel: ChannelRow | null; members: ChannelMemberRow[] }>> {
+  return apiFetch<{ channel: ChannelRow | null; members: ChannelMemberRow[] }>(
+    `/api/v1/channels/${id}`,
+  );
+}
+
+export async function createChannel(input: {
+  name: string;
+  visibility: "public" | "private";
+  description?: string | null;
+}): Promise<ApiResult<{ channel: { id: string; name: string } }>> {
+  return apiFetch<{ channel: { id: string; name: string } }>("/api/v1/channels", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function patchChannel(
+  id: string,
+  patch: {
+    name?: string;
+    description?: string | null;
+    visibility?: "public" | "private";
+    archived?: boolean;
+  },
+): Promise<ApiResult<{ channel: ChannelRow | null }>> {
+  return apiFetch<{ channel: ChannelRow | null }>(`/api/v1/channels/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function fetchMeetingsInChannel(
+  channelId: string,
+): Promise<ApiResult<{ meetings: ApiMeeting[]; total: number }>> {
+  return apiFetch<{ meetings: ApiMeeting[]; total: number }>(
+    `/api/v1/meetings?channelId=${encodeURIComponent(channelId)}`,
+  );
+}
+
 export async function searchMeetings(query: string): Promise<SearchResult[]> {
   const payload = await request<{ results: SearchResult[] }>(
     `/api/v1/search?q=${encodeURIComponent(query)}`,
