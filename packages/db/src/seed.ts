@@ -35,6 +35,7 @@ const IDS = {
   note1: "99999999-9999-4999-8999-999999999999",
   providerAsr: "12121212-1212-4121-8121-121212121212",
   providerLlm: "13131313-1313-4131-8131-131313131313",
+  providerEmbedding: "16161616-1616-4161-8161-161616161616",
   retention: "14141414-1414-4141-8141-141414141414",
 };
 
@@ -51,11 +52,26 @@ await client.connect();
 
 const q = (text: string, values: unknown[] = []) => client.query(text, values);
 
+// The workspace AI policy lives in the organization settings blob: budget cap,
+// feature gates and model defaults. The demo keeps semantic search off so the
+// admin screen has a visible disabled gate.
 await q(
   `insert into organizations (id, name, slug, domain_allowlist, settings)
-   values ($1,'Click Demo','demo','{}','{"ai_budget_cap":50}')
-   on conflict (id) do nothing`,
-  [IDS.org],
+   values ($1,'Click Demo','demo','{}',$2::jsonb)
+   on conflict (id) do update set settings = excluded.settings`,
+  [
+    IDS.org,
+    JSON.stringify({
+      ai_budget_cap: 50,
+      feature_gates: {
+        summaries: true,
+        action_items: true,
+        semantic_search: false,
+        transcription: true,
+      },
+      model_defaults: { asr: "mock-v1", llm: "mock-summary", embeddings: null },
+    }),
+  ],
 );
 
 const passwordHash = await hashPassword(process.env.SEED_PASSWORD ?? "click-demo-2026");
@@ -147,13 +163,27 @@ await q(
   [IDS.channel, IDS.ava, IDS.sam, IDS.channel2, IDS.maya],
 );
 
+// Provider rows for the demo workspace. Re-running the seed restores the demo
+// state. Operator rows are kept, but they lose the default flag first: the
+// one_default_provider_per_kind index only allows one default per kind.
+await q(
+  `update provider_configs set is_default = false
+   where org_id = $1 and kind in ('asr','llm','embedding') and id not in ($2,$3,$4)`,
+  [IDS.org, IDS.providerAsr, IDS.providerLlm, IDS.providerEmbedding],
+);
 await q(
   `insert into provider_configs (id, org_id, kind, provider, model, options, is_default, status)
    values
-     ($1,$2,'asr','mock','mock-v1','{}',true,'ok'),
-     ($3,$2,'llm','mock','mock-summary','{}',true,'ok')
-   on conflict do nothing`,
-  [IDS.providerAsr, IDS.org, IDS.providerLlm],
+     ($1,$2,'asr','mock','mock-v1','{"enabled":true}',true,'ok'),
+     ($3,$2,'llm','mock','mock-summary','{"enabled":true}',true,'ok'),
+     ($4,$2,'embedding','openai-compatible',null,'{"enabled":true}',true,'unconfigured')
+   on conflict (id) do update
+     set provider = excluded.provider,
+         model = excluded.model,
+         options = excluded.options,
+         is_default = excluded.is_default,
+         status = excluded.status`,
+  [IDS.providerAsr, IDS.org, IDS.providerLlm, IDS.providerEmbedding],
 );
 
 const meetings = [

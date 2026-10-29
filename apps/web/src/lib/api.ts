@@ -512,6 +512,94 @@ export async function fetchAuditEvents(
   );
 }
 
+export interface AiFeatureGates {
+  summaries: boolean;
+  actionItems: boolean;
+  semanticSearch: boolean;
+  transcription: boolean;
+}
+
+export interface AiModelDefaults {
+  asr: string | null;
+  llm: string | null;
+  embeddings: string | null;
+}
+
+export interface AiPolicy {
+  budgetCap: number;
+  featureGates: AiFeatureGates;
+  modelDefaults: AiModelDefaults;
+}
+
+export interface ProviderConfigRow {
+  id: string;
+  kind: string;
+  provider: string;
+  baseUrl: string | null;
+  model: string | null;
+  options: Record<string, unknown>;
+  isDefault: boolean;
+  status: string;
+  hasKey: boolean;
+  updatedAt: string;
+}
+
+export interface AiUsage {
+  periodStart: string | null;
+  periodEnd: string | null;
+  asrSeconds: number;
+  llmTokensIn: number;
+  llmTokensOut: number;
+  costEstimate: number;
+  budgetCap: number;
+  currency: string;
+}
+
+export async function fetchAiPolicy(): Promise<
+  ApiResult<{ policy: AiPolicy; providers: ProviderConfigRow[]; usage: AiUsage }>
+> {
+  return apiFetch<{ policy: AiPolicy; providers: ProviderConfigRow[]; usage: AiUsage }>(
+    "/api/v1/admin/ai-policy",
+  );
+}
+
+export async function updateAiPolicy(patch: {
+  budgetCap?: number;
+  featureGates?: Partial<AiFeatureGates>;
+  modelDefaults?: Partial<AiModelDefaults>;
+}): Promise<ApiResult<{ policy: AiPolicy }>> {
+  return apiFetch<{ policy: AiPolicy }>("/api/v1/admin/ai-policy", {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function saveProviderConfig(input: {
+  kind: "asr" | "llm" | "embedding";
+  provider: string;
+  baseUrl?: string | null;
+  apiKey?: string;
+  model?: string | null;
+  enabled?: boolean;
+}): Promise<ApiResult<{ providers: ProviderConfigRow[]; saved: string | null }>> {
+  return apiFetch<{ providers: ProviderConfigRow[]; saved: string | null }>(
+    "/api/v1/admin/ai-policy/providers",
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export async function deleteProviderConfig(
+  id: string,
+): Promise<ApiResult<{ providers: ProviderConfigRow[] }>> {
+  return apiFetch<{ providers: ProviderConfigRow[] }>(
+    `/api/v1/admin/ai-policy/providers/${id}`,
+    { method: "DELETE" },
+  );
+}
+
 export async function searchMeetings(query: string): Promise<SearchResult[]> {
   const payload = await request<{ results: SearchResult[] }>(
     `/api/v1/search?q=${encodeURIComponent(query)}`,

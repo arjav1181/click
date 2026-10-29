@@ -12,6 +12,7 @@ import {
   transcriptSegments,
   transcripts,
   withTenant,
+  workspaceRepo,
 } from "@click/db";
 import { aiConfig } from "./env";
 import { sendMail } from "./mailer";
@@ -21,6 +22,7 @@ import {
   assertBudget,
   embedTexts,
   recordUsage,
+  resolveProviderOverride,
   summarize,
   transcribe,
   type SummaryCitation,
@@ -121,6 +123,7 @@ export async function transcribeJob(data: TranscribeJobData): Promise<JobOutcome
       filename: context.storageKey.split("/").pop() ?? "recording",
       mimeType: object.contentType,
       language: context.language || undefined,
+      override: await resolveProviderOverride(data.orgId, "asr"),
     });
     if (result.segments.length === 0) throw new Error("Transcription returned no speech segments.");
 
@@ -289,7 +292,18 @@ export async function summarizeJob(data: SummarizeJobData): Promise<JobOutcome> 
       meetingTitle: meeting.title,
       template: templateName,
       length: data.length,
+      override: await resolveProviderOverride(data.orgId, "llm"),
     });
+
+    // A workspace can turn AI action items off without turning off summaries.
+    const policy = await workspaceRepo.getAiPolicy({
+      orgId: data.orgId,
+      userId: "00000000-0000-0000-0000-000000000000",
+    });
+    const actionItemsEnabled = policy.featureGates.actionItems;
+    const summarySections = policy.featureGates.summaries
+      ? summary.sections
+      : summary.sections.filter((section) => section.key !== "action_items");
 
     const segmentIdByIndex = new Map(transcript.map((line) => [line.index, line.id]));
     const startByIndex = new Map(transcript.map((line) => [line.index, line.startMs]));
@@ -305,7 +319,7 @@ export async function summarizeJob(data: SummarizeJobData): Promise<JobOutcome> 
       const insertedSections = await tx
         .insert(noteSections)
         .values(
-          summary.sections.map((section, index) => ({
+          summarySections.map((section, index) => ({
             orgId: data.orgId,
             noteId: note.id,
             key: section.key.slice(0, 60),
@@ -343,7 +357,7 @@ export async function summarizeJob(data: SummarizeJobData): Promise<JobOutcome> 
       await tx.delete(actionItems).where(
         and(eq(actionItems.meetingId, data.meetingId), sql`${actionItems.sourceSegmentId} is not null`),
       );
-      if (summary.actionItems.length > 0) {
+      if (actionItemsEnabled && summary.actionItems.length > 0) {
         await tx.insert(actionItems).values(
           summary.actionItems.slice(0, 50).map((item) => ({
             orgId: data.orgId,
@@ -379,8 +393,13 @@ export async function summarizeJob(data: SummarizeJobData): Promise<JobOutcome> 
 }
 
 export async function embedJob(data: EmbedJobData): Promise<JobOutcome> {
-  if (!aiConfig().embeddings.enabled) return { orgId: data.orgId, meetingId: data.meetingId };
   const ctx = { orgId: data.orgId, userId: "00000000-0000-0000-0000-000000000000" };
+  // A workspace can bring its own embedding provider, so the env switch is
+  // only the fallback.
+  const embeddingOverride = await resolveProviderOverride(data.orgId, "embedding");
+  if (!embeddingOverride && !aiConfig().embeddings.enabled) {
+    return { orgId: data.orgId, meetingId: data.meetingId };
+  }
 
   const segments = await withTenant(ctx, async (tx) => {
     const rows = await tx.execute(sql`
@@ -397,7 +416,7 @@ export async function embedJob(data: EmbedJobData): Promise<JobOutcome> {
   const vectors: number[][] = [];
   for (let offset = 0; offset < segments.length; offset += 64) {
     const batch = segments.slice(offset, offset + 64);
-    const result = await embedTexts(batch.map((segment) => segment.text));
+    const result = await embedTexts(batch.map((segment) => segment.text), embeddingOverride);
     if (!result) return { orgId: data.orgId, meetingId: data.meetingId };
     vectors.push(...result);
   }
@@ -412,7 +431,7 @@ export async function embedJob(data: EmbedJobData): Promise<JobOutcome> {
         orgId: data.orgId,
         objectType: "segment",
         objectId: segment.id,
-        model: aiConfig().embeddings.model,
+        model: embeddingOverride?.model ?? aiConfig().embeddings.model,
         embedding: vectors[offset + index],
       }));
       await tx.insert(embeddings).values(rows);

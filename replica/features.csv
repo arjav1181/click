@@ -17,13 +17,13 @@ Deactivate and reactivate members,workspace,must,yes,yes,P0; S53 admin members s
 Transfer workspace ownership,workspace,must,yes,no,P2
 Workspace-wide recording policy,workspace,must,yes,no,P2
 Private-by-default meeting visibility,workspace,must,yes,yes,P1; meetings default to private and RLS enforces tenant scoping
-Admin feature gates for analytics chat and public links,workspace,should,yes,no,P5
+Admin feature gates for analytics chat and public links,workspace,should,yes,yes,P5; S56 admin AI policy over GET/PATCH /api/v1/admin/ai-policy: per-feature gates for transcription, summaries, action items and semantic search
 Retention policy per workspace,workspace,must,yes,partial,P0; retention_policies table and settings exist, scheduled purge not built
 Legal hold for custodians,workspace,could,yes,no,P5; Granola
 Audit log of admin and data actions,workspace,must,yes,yes,P0; S58 admin audit log over GET /api/v1/org/audit: event table, action/actor/target/date filters, detail drawer, pagination
 Audit log CSV export,workspace,should,yes,yes,P1; S58 admin audit log exports the filtered event list to CSV
 Workspace usage analytics dashboard,workspace,should,yes,no,P5
-AI budget cap with alerts and hard stop,workspace,must,no,yes,P0; done in replica-backend: BUDGET_CAP_USD and per-org cap, hard stop before spend, usage_meters ledger
+AI budget cap with alerts and hard stop,workspace,must,no,yes,P0; S56 admin AI policy sets the per-workspace monthly cap, shows spend against it, warns when it is hit and hard-stops AI work
 SMTP storage and SSO configuration UI,workspace,must,no,partial,P0; settings and provider admin APIs exist, SMTP and SSO setup still env or CLI
 Google Calendar sync,calendar,must,yes,no,P1; calendar_connections table and token encryption exist, OAuth sync not built
 Microsoft Outlook calendar sync,calendar,should,yes,no,P4
