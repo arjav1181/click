@@ -476,15 +476,40 @@ export async function inviteMember(input: {
 export interface AuditEventRow {
   id: string;
   action: string;
-  targetType: string;
-  targetId: string;
+  targetType: string | null;
+  targetId: string | null;
+  metadata: Record<string, unknown> | null;
   createdAt: string;
   ip: string | null;
+  actorId: string | null;
   actorName: string | null;
 }
 
-export async function fetchAuditEvents(): Promise<ApiResult<{ events: AuditEventRow[] }>> {
-  return apiFetch<{ events: AuditEventRow[] }>("/api/v1/org/audit");
+export interface AuditFilters {
+  action?: string;
+  actorId?: string;
+  targetType?: string;
+  since?: string;
+  until?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export async function fetchAuditEvents(
+  filters: AuditFilters = {},
+): Promise<ApiResult<{ events: AuditEventRow[]; actions: string[] }>> {
+  const params = new URLSearchParams();
+  if (filters.action) params.set("action", filters.action);
+  if (filters.actorId) params.set("actorId", filters.actorId);
+  if (filters.targetType) params.set("targetType", filters.targetType);
+  if (filters.since) params.set("since", filters.since);
+  if (filters.until) params.set("until", filters.until);
+  if (filters.limit) params.set("limit", String(filters.limit));
+  if (filters.offset) params.set("offset", String(filters.offset));
+  const query = params.toString();
+  return apiFetch<{ events: AuditEventRow[]; actions: string[] }>(
+    `/api/v1/org/audit${query ? `?${query}` : ""}`,
+  );
 }
 
 export async function searchMeetings(query: string): Promise<SearchResult[]> {
