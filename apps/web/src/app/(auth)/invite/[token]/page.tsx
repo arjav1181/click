@@ -1,7 +1,6 @@
-import { ScreenStub } from "@/components/screen-stub";
+import { InviteClient } from "./invite-client";
 
-export default function Page() {
-  return (
-    <ScreenStub id="S02" title="Accept invite" description="Join a workspace from an invitation link." />
-  );
+export default async function Page({ params }: { params: Promise<{ token: string }> }) {
+  const { token } = await params;
+  return <InviteClient token={token} />;
 }

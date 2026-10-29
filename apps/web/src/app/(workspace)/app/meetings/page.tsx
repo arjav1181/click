@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button, Card, CardHeader, Badge, EmptyState, Input, Select, Skeleton } from "@click/ui";
-import { data } from "@click/core";
+import { listMeetings } from "@/lib/api";
 import { MeetingCard } from "@click/ui";
 import Link from "next/link";
 import type { Meeting } from "@click/core";
@@ -16,8 +16,7 @@ export default function MeetingsPage() {
   useEffect(() => {
     let active = true;
     setLoading(true);
-    data
-      .listMeetings({ q: query || undefined, status: (status || undefined) as never })
+    listMeetings({ q: query || undefined, status: status || undefined })
       .then((result) => {
         if (active) {
           setMeetings(result.meetings);

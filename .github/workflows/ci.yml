@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: click
+          POSTGRES_PASSWORD: click
+          POSTGRES_DB: click
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U click -d click"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://click:click@127.0.0.1:5432/click
+      REDIS_URL: redis://127.0.0.1:6379
+      APP_URL: http://localhost:3000
+      APP_SECRET: ci-secret-not-for-production
+      ENCRYPTION_KEY: Y2ktZW5jcnlwdGlvbi1rZXktMzItYnl0ZXMtISE=
+      ASR_PROVIDER: mock
+      LLM_PROVIDER: mock
+      STORAGE_DRIVER: local
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build
+        run: pnpm build
+
+      - name: Apply migrations
+        run: pnpm db:migrate
+
+      - name: Seed demo data
+        run: pnpm db:seed
+
+      - name: RLS isolation test
+        run: pnpm --filter @click/db test:rls
+
+      - name: Health check
+        run: |
+          pnpm --filter web start &
+          npx --yes wait-on http://127.0.0.1:3000/api/healthz -t 60000
+          curl -fsS http://127.0.0.1:3000/api/healthz

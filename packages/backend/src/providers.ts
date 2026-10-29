@@ -1,0 +1,452 @@
+import { sql } from "drizzle-orm";
+import { z } from "zod";
+import { withTenant } from "@click/db";
+import { aiConfig, budgetCapDefault } from "./env";
+
+export class BudgetExceededError extends Error {
+  readonly code = "budget_exceeded";
+  constructor(readonly cap: number, readonly spent: number) {
+    super(
+      `This workspace has reached its AI budget cap ($${cap.toFixed(2)}). Raise the cap in Admin → AI or wait for the next period.`,
+    );
+  }
+}
+
+export interface AsrSegment {
+  speaker?: string | null;
+  startMs: number;
+  endMs: number;
+  text: string;
+  confidence?: number | null;
+}
+
+export interface TranscriptionResult {
+  language: string;
+  durationMs: number;
+  segments: AsrSegment[];
+  provider: string;
+  model: string;
+}
+
+export interface SummarySection {
+  key: string;
+  title: string;
+  body: string;
+}
+
+export interface SummaryActionItem {
+  text: string;
+  assigneeName?: string | null;
+  dueAt?: string | null;
+  sourceSegmentIndex?: number | null;
+}
+
+export interface SummaryCitation {
+  sectionKey: string;
+  segmentIndex: number;
+  quote: string;
+}
+
+export interface SummaryResult {
+  sections: SummarySection[];
+  actionItems: SummaryActionItem[];
+  citations: SummaryCitation[];
+  model: string;
+  usage: { inputTokens: number; outputTokens: number };
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function fetchWithRetry(url: string, init: RequestInit, attempts = 3): Promise<Response> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const response = await fetch(url, { ...init, signal: AbortSignal.timeout(15 * 60_000) });
+      if (response.status === 429 || response.status >= 500) {
+        lastError = new Error(`Provider returned ${response.status}`);
+        await sleep(500 * 2 ** (attempt - 1));
+        continue;
+      }
+      return response;
+    } catch (error) {
+      lastError = error;
+      if (attempt < attempts) await sleep(500 * 2 ** (attempt - 1));
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("Provider request failed");
+}
+
+function mockTranscript(filename: string): TranscriptionResult {
+  const script: Array<[string, number, number, string]> = [
+    ["Ava", 0, 6400, "Thanks everyone for joining. I want to keep this to thirty minutes and leave with owners for each item."],
+    ["Sam", 6400, 13200, "The main update is that the onboarding flow is finished. The calendar connection is the only piece still open."],
+    ["Ava", 13200, 20100, "Good. Do we still agree on launching on the fourteenth, or does the calendar work move that?"],
+    ["Sam", 20100, 27400, "I think we can keep the date. I need to confirm the OAuth redirect is registered with Google before Friday."],
+    ["Maya", 27400, 34800, "I will finish the empty states and the mobile pass by Wednesday. No blockers on my side."],
+    ["Ava", 34800, 41900, "One risk is support load. If self-hosters hit provider setup problems, we need documentation ready on day one."],
+    ["Sam", 41900, 48600, "Agreed. I will write the setup guide and test it on a clean install this week."],
+    ["Ava", 48600, 55200, "Then the decision is: launch on the fourteenth, documentation is a release blocker, and no paywalls."],
+    ["Maya", 55200, 61800, "Should we also add a short in-app checklist for first-time admins?"],
+    ["Ava", 61800, 68400, "Yes, that is worth doing. Maya, can you draft it after the mobile pass?"],
+  ];
+  const provider = aiConfig().asr.provider;
+  return {
+    language: aiConfig().asr.language || "en",
+    durationMs: 68_400,
+    provider: provider === "mock" ? "mock" : provider,
+    model: provider === "mock" ? "click-demo-asr" : aiConfig().asr.model,
+    segments: script.map(([speaker, startMs, endMs, text]) => ({
+      speaker,
+      startMs,
+      endMs,
+      text,
+      confidence: 0.94,
+    })),
+  };
+}
+
+/**
+ * Transcribes an audio buffer. `mock` needs no keys and makes a fresh install
+ * demoable; `local` talks to apps/asr; `openai` works with any compatible
+ * /audio/transcriptions endpoint.
+ */
+export async function transcribe(input: {
+  audio: Buffer;
+  filename: string;
+  mimeType: string;
+  language?: string;
+}): Promise<TranscriptionResult> {
+  const config = aiConfig().asr;
+  if (config.provider === "mock") return mockTranscript(input.filename);
+
+  const form = new FormData();
+  const bytes = new Uint8Array(input.audio.byteLength);
+  bytes.set(input.audio);
+  form.append("file", new Blob([bytes], { type: input.mimeType }), input.filename);
+  if (input.language) form.append("language", input.language);
+  form.append("model", config.model);
+
+  if (config.provider === "local") {
+    if (!config.url) throw new Error("ASR_URL is not set for the local ASR provider.");
+    const response = await fetchWithRetry(`${config.url.replace(/\/$/, "")}/transcribe`, {
+      method: "POST",
+      body: form,
+    });
+    if (!response.ok) throw new Error(`ASR service returned ${response.status}`);
+    const body = (await response.json()) as {
+      language?: string;
+      duration_ms?: number;
+      segments?: Array<{ start_ms: number; end_ms: number; text: string; speaker?: string; confidence?: number }>;
+    };
+    return {
+      language: body.language ?? input.language ?? "en",
+      durationMs: body.duration_ms ?? 0,
+      segments: (body.segments ?? []).map((s) => ({
+        speaker: s.speaker ?? null,
+        startMs: s.start_ms,
+        endMs: s.end_ms,
+        text: s.text.trim(),
+        confidence: s.confidence ?? null,
+      })),
+      provider: "local",
+      model: config.model,
+    };
+  }
+
+  if (!config.apiKey) throw new Error("ASR_API_KEY is not set for the OpenAI-compatible provider.");
+  form.append("response_format", "verbose_json");
+  form.append("timestamp_granularities[]", "segment");
+  const base = process.env.ASR_BASE_URL ?? "https://api.openai.com/v1";
+  const response = await fetchWithRetry(`${base.replace(/\/$/, "")}/audio/transcriptions`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${config.apiKey}` },
+    body: form,
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(`Transcription provider returned ${response.status}: ${detail.slice(0, 300)}`);
+  }
+  const body = (await response.json()) as {
+    language?: string;
+    duration?: number;
+    segments?: Array<{ start: number; end: number; text: string }>;
+    text?: string;
+  };
+  const segments =
+    body.segments?.map((s) => ({
+      speaker: null,
+      startMs: Math.round(s.start * 1000),
+      endMs: Math.round(s.end * 1000),
+      text: s.text.trim(),
+      confidence: null,
+    })) ??
+    (body.text
+      ? [{ speaker: null, startMs: 0, endMs: Math.round((body.duration ?? 0) * 1000), text: body.text, confidence: null }]
+      : []);
+  return {
+    language: body.language ?? input.language ?? "en",
+    durationMs: Math.round((body.duration ?? 0) * 1000),
+    segments,
+    provider: "openai-compatible",
+    model: config.model,
+  };
+}
+
+interface TranscriptLine {
+  index: number;
+  speaker: string;
+  startMs: number;
+  text: string;
+}
+
+function heuristicSummary(lines: TranscriptLine[], template: string): SummaryResult {
+  const pick = (test: (line: TranscriptLine) => boolean, limit = 5) =>
+    lines.filter(test).slice(0, limit);
+
+  const has = (line: TranscriptLine, words: string[]) =>
+    words.some((word) => line.text.toLowerCase().includes(word));
+
+  const overview = lines.slice(0, 3).map((line) => `- ${line.text}`).join("\n");
+  const decisions = pick((line) => has(line, ["agree", "decided", "decision", "we will", "i will", "launch on"]));
+  const actions = pick((line) => has(line, ["need to", "will ", "can you", "i'll", "confirm", "finish", "write", "draft", "test"]));
+  const risks = pick((line) => has(line, ["risk", "concern", "blocker", "problem", "support load"]));
+  const questions = pick((line) => line.text.includes("?"));
+
+  const sections: SummarySection[] = [
+    { key: "overview", title: "Overview", body: overview || "No overview could be generated from this transcript." },
+  ];
+  if (decisions.length) {
+    sections.push({ key: "decisions", title: "Decisions", body: decisions.map((l) => `- ${l.text}`).join("\n") });
+  }
+  if (risks.length) {
+    sections.push({ key: "risks", title: "Risks", body: risks.map((l) => `- ${l.text}`).join("\n") });
+  }
+  if (questions.length) {
+    sections.push({ key: "open_questions", title: "Open questions", body: questions.map((l) => `- ${l.text}`).join("\n") });
+  }
+  sections.push({
+    key: "action_items",
+    title: "Action items",
+    body: actions.length ? actions.map((l) => `- ${l.text} (${l.speaker})`).join("\n") : "No action items were detected.",
+  });
+
+  const citations: SummaryCitation[] = sections.flatMap((section) => {
+    const source = section.key === "overview" ? lines.slice(0, 1) : pick((line) => section.body.includes(line.text), 2);
+    return source.map((line) => ({
+      sectionKey: section.key,
+      segmentIndex: line.index,
+      quote: line.text.slice(0, 240),
+    }));
+  });
+
+  return {
+    sections,
+    actionItems: actions.slice(0, 10).map((line) => ({
+      text: line.text.replace(/^(so|and|then|right)[, ]+/i, "").slice(0, 500),
+      assigneeName: line.speaker,
+      dueAt: null,
+      sourceSegmentIndex: line.index,
+    })),
+    citations,
+    model: `mock-summary${template ? `:${template}` : ""}`,
+    usage: {
+      inputTokens: Math.ceil(lines.reduce((sum, line) => sum + line.text.length, 0) / 4),
+      outputTokens: Math.ceil(sections.reduce((sum, section) => sum + section.body.length, 0) / 4),
+    },
+  };
+}
+
+const summarySchema = z.object({
+  sections: z
+    .array(z.object({ key: z.string().min(1).max(60), title: z.string().min(1).max(120), body: z.string().max(20_000) }))
+    .min(1)
+    .max(20),
+  action_items: z
+    .array(
+      z.object({
+        text: z.string().min(1).max(1000),
+        assignee: z.string().max(120).nullable().optional(),
+        due_at: z.string().nullable().optional(),
+        segment_index: z.number().int().nonnegative().nullable().optional(),
+      }),
+    )
+    .max(50)
+    .default([]),
+  citations: z
+    .array(
+      z.object({
+        section_key: z.string().max(60),
+        segment_index: z.number().int().nonnegative(),
+        quote: z.string().max(500),
+      }),
+    )
+    .max(200)
+    .default([]),
+});
+
+/**
+ * Produces structured notes. `mock` is a deterministic extractive summary so
+ * the pipeline and UI work without an API key; any OpenAI-compatible chat
+ * endpoint can be used for real summaries.
+ */
+export async function summarize(input: {
+  segments: TranscriptLine[];
+  meetingTitle: string;
+  template?: string;
+  length?: "short" | "standard" | "detailed";
+}): Promise<SummaryResult> {
+  const config = aiConfig().llm;
+  if (config.provider === "mock") return heuristicSummary(input.segments, input.template ?? "");
+
+  if (!config.apiKey && !/localhost|127\.0\.0\.1/.test(config.baseUrl)) {
+    throw new Error("LLM_API_KEY is not set. Add a key or set LLM_PROVIDER=mock.");
+  }
+
+  const transcript = input.segments
+    .map((line) => `[${line.index}] ${line.speaker} (${Math.floor(line.startMs / 1000)}s): ${line.text}`)
+    .join("\n")
+    .slice(0, 120_000);
+
+  const lengthInstruction =
+    input.length === "short"
+      ? "Keep each section to two sentences."
+      : input.length === "detailed"
+        ? "Be thorough; each section can use several bullets."
+        : "Use short paragraphs or bullets.";
+
+  const prompt = `Meeting title: ${input.meetingTitle}
+Template: ${input.template ?? "general meeting notes"}
+Length: ${lengthInstruction}
+
+Transcript:
+${transcript}
+
+Return JSON with this shape:
+{
+  "sections": [{"key":"overview","title":"Overview","body":"markdown"}],
+  "action_items": [{"text":"...","assignee":"name or null","due_at":null,"segment_index":3}],
+  "citations": [{"section_key":"overview","segment_index":3,"quote":"exact words from that segment"}]
+}
+Use these section keys when the material supports them: overview, decisions, risks, open_questions, action_items. Never invent facts, names, dates or owners that are not in the transcript. If there are no action items, return an empty array.`;
+
+  const response = await fetchWithRetry(`${config.baseUrl.replace(/\/$/, "")}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
+    },
+    body: JSON.stringify({
+      model: config.model,
+      temperature: 0.2,
+      max_tokens: config.maxTokens,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are Click, a careful meeting-notes assistant. You write only from the transcript and answer with valid JSON.",
+        },
+        { role: "user", content: prompt },
+      ],
+    }),
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(`LLM provider returned ${response.status}: ${detail.slice(0, 300)}`);
+  }
+  const body = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
+  };
+  const content = body.choices?.[0]?.message?.content;
+  if (!content) throw new Error("LLM provider returned an empty response.");
+  const parsed = summarySchema.parse(JSON.parse(content));
+
+  return {
+    sections: parsed.sections,
+    actionItems: parsed.action_items.map((item) => ({
+      text: item.text,
+      assigneeName: item.assignee ?? null,
+      dueAt: item.due_at ?? null,
+      sourceSegmentIndex: item.segment_index ?? null,
+    })),
+    citations: parsed.citations.map((citation) => ({
+      sectionKey: citation.section_key,
+      segmentIndex: citation.segment_index,
+      quote: citation.quote,
+    })),
+    model: config.model,
+    usage: {
+      inputTokens: body.usage?.prompt_tokens ?? 0,
+      outputTokens: body.usage?.completion_tokens ?? 0,
+    },
+  };
+}
+
+export async function embedTexts(texts: string[]): Promise<number[][] | null> {
+  const config = aiConfig().embeddings;
+  if (!config.enabled || texts.length === 0) return null;
+  if (!config.baseUrl) throw new Error("EMBEDDING_BASE_URL is not set.");
+  const response = await fetchWithRetry(`${config.baseUrl.replace(/\/$/, "")}/embeddings`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
+    },
+    body: JSON.stringify({ model: config.model, input: texts }),
+  });
+  if (!response.ok) throw new Error(`Embedding provider returned ${response.status}`);
+  const body = (await response.json()) as {
+    data?: Array<{ embedding: number[]; index: number }>;
+  };
+  const rows = body.data ?? [];
+  return rows.sort((a, b) => a.index - b.index).map((row) => row.embedding);
+}
+
+export async function assertBudget(orgId: string): Promise<void> {
+  const cap = budgetCapDefault();
+  if (cap <= 0) return;
+  const spent = await withTenant({ orgId, userId: "00000000-0000-0000-0000-000000000000" }, async (tx) => {
+    const result = await tx.execute(sql`
+      select coalesce(cost_estimate, 0)::float as spent,
+             coalesce(budget_cap, ${cap})::float as cap
+      from usage_meters
+      where org_id = ${orgId} and period_start = date_trunc('month', now())
+      limit 1
+    `);
+    return (result.rows[0] as { spent: number; cap: number } | undefined) ?? null;
+  });
+  if (spent && spent.cap > 0 && spent.spent >= spent.cap) {
+    throw new BudgetExceededError(spent.cap, spent.spent);
+  }
+}
+
+export async function recordUsage(
+  orgId: string,
+  input: { asrSeconds?: number; tokensIn?: number; tokensOut?: number },
+): Promise<void> {
+  const pricing = aiConfig().pricing;
+  const asrSeconds = Math.max(0, Math.round(input.asrSeconds ?? 0));
+  const tokensIn = Math.max(0, Math.round(input.tokensIn ?? 0));
+  const tokensOut = Math.max(0, Math.round(input.tokensOut ?? 0));
+  const cost =
+    (asrSeconds / 60) * pricing.asrPerMinute +
+    (tokensIn / 1000) * pricing.llmInPer1k +
+    (tokensOut / 1000) * pricing.llmOutPer1k;
+
+  await withTenant({ orgId, userId: "00000000-0000-0000-0000-000000000000" }, async (tx) => {
+    await tx.execute(sql`
+      insert into usage_meters
+        (org_id, period_start, period_end, asr_seconds, llm_tokens_in, llm_tokens_out, cost_estimate, budget_cap)
+      values
+        (${orgId}, date_trunc('month', now()), date_trunc('month', now()) + interval '1 month',
+         ${asrSeconds}, ${tokensIn}, ${tokensOut}, ${cost}, ${budgetCapDefault() > 0 ? budgetCapDefault() : null})
+      on conflict (org_id, period_start) do update set
+        asr_seconds = usage_meters.asr_seconds + excluded.asr_seconds,
+        llm_tokens_in = usage_meters.llm_tokens_in + excluded.llm_tokens_in,
+        llm_tokens_out = usage_meters.llm_tokens_out + excluded.llm_tokens_out,
+        cost_estimate = usage_meters.cost_estimate + excluded.cost_estimate,
+        budget_cap = coalesce(usage_meters.budget_cap, excluded.budget_cap)
+    `);
+  });
+}

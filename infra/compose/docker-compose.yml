@@ -1,0 +1,218 @@
+name: click
+
+x-app-env: &app-env
+  NODE_ENV: production
+  APP_URL: ${APP_URL:-http://localhost}
+  DATABASE_URL: postgres://${POSTGRES_USER:-click}:${POSTGRES_PASSWORD:-click}@db:5432/${POSTGRES_DB:-click}
+  REDIS_URL: redis://redis:6379
+  SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-click_session}
+  APP_SECRET: ${APP_SECRET:-change-me-in-production}
+  ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+  BOT_WEBHOOK_SECRET: ${BOT_WEBHOOK_SECRET:-change-me-bot-secret}
+  STORAGE_DRIVER: s3
+  S3_ENDPOINT: http://minio:9000
+  S3_REGION: ${S3_REGION:-us-east-1}
+  S3_BUCKET: ${S3_BUCKET:-click}
+  S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-click}
+  S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-click-minio-password}
+  S3_FORCE_PATH_STYLE: "true"
+  MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-500}
+  ASR_PROVIDER: ${ASR_PROVIDER:-local}
+  ASR_URL: http://asr:8000
+  ASR_MODEL: ${ASR_MODEL:-small}
+  ASR_LANGUAGE: ${ASR_LANGUAGE:-}
+  LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+  LLM_BASE_URL: ${LLM_BASE_URL:-https://api.openai.com/v1}
+  LLM_API_KEY: ${LLM_API_KEY:-}
+  LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+  EMBEDDINGS_ENABLED: ${EMBEDDINGS_ENABLED:-false}
+  EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+  EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-1536}
+  BUDGET_CAP_USD: ${BUDGET_CAP_USD:-0}
+  SMTP_HOST: ${SMTP_HOST:-}
+  SMTP_PORT: ${SMTP_PORT:-587}
+  SMTP_SECURE: ${SMTP_SECURE:-false}
+  SMTP_USER: ${SMTP_USER:-}
+  SMTP_PASS: ${SMTP_PASS:-}
+  MAIL_FROM: ${MAIL_FROM:-Click <click@localhost>}
+  OIDC_ISSUER: ${OIDC_ISSUER:-}
+  OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+  OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+  OIDC_DISPLAY_NAME: ${OIDC_DISPLAY_NAME:-Single sign-on}
+  OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:-}
+  CLICK_VERSION: ${CLICK_VERSION:-local}
+
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-click}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-click}
+      POSTGRES_DB: ${POSTGRES_DB:-click}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-click} -d ${POSTGRES_DB:-click}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-click}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-click-minio-password}
+    volumes:
+      - miniodata:/data
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/minio/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >
+        mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" &&
+        mc mb --ignore-existing local/"$${S3_BUCKET}" &&
+        mc anonymous set none local/"$${S3_BUCKET}"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-click}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-click-minio-password}
+      S3_BUCKET: ${S3_BUCKET:-click}
+
+  migrate:
+    build:
+      context: ../..
+      dockerfile: infra/docker/worker.Dockerfile
+    command: ["pnpm", "--filter", "@click/db", "migrate"]
+    environment: *app-env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  web:
+    build:
+      context: ../..
+      dockerfile: infra/docker/web.Dockerfile
+    restart: unless-stopped
+    environment: *app-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/healthz >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: infra/docker/worker.Dockerfile
+    restart: unless-stopped
+    command: ["pnpm", "--filter", "@click/worker", "start"]
+    environment:
+      <<: *app-env
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-2}
+      WORKER_HEALTH_PORT: "8081"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    expose:
+      - "8081"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/healthz >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  asr:
+    build:
+      context: ../../apps/asr
+    restart: unless-stopped
+    environment:
+      ASR_MODEL: ${ASR_MODEL:-small}
+      ASR_DEVICE: ${ASR_DEVICE:-cpu}
+      ASR_COMPUTE_TYPE: ${ASR_COMPUTE_TYPE:-int8}
+      ASR_MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-500}
+    volumes:
+      - asr_models:/models
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/healthz >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    depends_on:
+      web:
+        condition: service_healthy
+
+  seed:
+    build:
+      context: ../..
+      dockerfile: infra/docker/worker.Dockerfile
+    command: ["pnpm", "--filter", "@click/db", "seed"]
+    environment:
+      <<: *app-env
+      SEED_PASSWORD: ${SEED_PASSWORD:-click-demo-2026}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    profiles: ["tools"]
+    restart: "no"
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:
+  asr_models:
+  caddydata:
+  caddyconfig:

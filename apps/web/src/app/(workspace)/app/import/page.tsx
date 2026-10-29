@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Button, Card, CardHeader, Badge, EmptyState, Skeleton } from "@click/ui";
-import { data } from "@click/core";
+import { uploadRecording } from "@/lib/api";
 import type { Meeting } from "@click/core";
 import Link from "next/link";
 
@@ -33,7 +33,7 @@ export default function ImportPage() {
       setProgress((p) => (p >= 90 ? 90 : p + 8));
     }, 200);
     try {
-      const meeting = await data.uploadRecording({ name: files[0].name, size: files[0].size });
+      const meeting = await uploadRecording({ name: files[0].name, size: files[0].size, file: files[0], title: files[0].name.replace(/\.[^.]+$/, "") });
       clearInterval(timer);
       setProgress(100);
       setState("transcribing");

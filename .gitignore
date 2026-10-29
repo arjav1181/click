@@ -10,6 +10,7 @@ dist/
 build/
 *.tsbuildinfo
 next-env.d.ts
+.turbo/
 
 # Environment
 .env
@@ -18,8 +19,10 @@ next-env.d.ts
 !.env.example
 
 # Runtime data (self-hosted: DB dumps, uploaded audio, exports)
-data/
-storage/
+/data/
+/.data/
+/storage/
+/uploads/
 *.sqlite
 *.sqlite3
 *.db

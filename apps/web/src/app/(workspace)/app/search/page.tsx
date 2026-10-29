@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Input, Button, Card, CardHeader, Badge, EmptyState, Skeleton } from "@click/ui";
-import { data } from "@click/core";
+import { searchMeetings } from "@/lib/api";
 import type { SearchResult } from "@click/core";
 import Link from "next/link";
 
@@ -17,7 +17,7 @@ export default function SearchPage() {
     if (!query.trim()) return;
     setLoading(true);
     setSearched(true);
-    const r = await data.searchMeetings(query);
+    const r = await searchMeetings(query);
     setResults(r);
     setSubmitted(query);
     setLoading(false);

@@ -1,46 +1,46 @@
 feature,area,priority,original,clone,notes
-Email and password sign-up and sign-in,onboarding,must,yes,partial,P0; Otter has email registration; UI built in replica-build M0/M1; data layer is seed/fake until replica-backend
-CLI password reset for operators,onboarding,must,no,no,P0; self-hosted requirement
-Optional SMTP magic-link sign-in,onboarding,should,no,no,P1
-Google OAuth sign-in,onboarding,should,yes,no,P1; all three
-Microsoft OAuth sign-in,onboarding,should,yes,no,P1; all three
-OIDC single sign-on,onboarding,should,yes,no,P5
-SAML single sign-on,onboarding,should,yes,no,P5
+Email and password sign-up and sign-in,onboarding,must,yes,yes,P0; done in replica-backend: scrypt passwords, hashed session cookies, real register/login/logout routes
+CLI password reset for operators,onboarding,must,no,yes,P0; done in replica-backend: packages/db/src/cli.ts reset-password
+Optional SMTP magic-link sign-in,onboarding,should,no,yes,P1; done in replica-backend: SMTP via Nodemailer, dev link fallback when SMTP is unset
+Google OAuth sign-in,onboarding,should,yes,no,P1; not implemented - configure an OIDC provider instead
+Microsoft OAuth sign-in,onboarding,should,yes,no,P1; not implemented - configure an OIDC provider instead
+OIDC single sign-on,onboarding,should,yes,yes,P5; done in replica-backend: discovery + PKCE + jose id_token verification
+SAML single sign-on,onboarding,should,yes,no,P5; not implemented - OIDC only, listed in replica/backend.md known gaps
 SCIM user provisioning,onboarding,could,yes,no,P5; Granola and Otter
-Email invite links for teammates,workspace,must,yes,no,P0
+Email invite links for teammates,workspace,must,yes,yes,P0; done in replica-backend: invitation tokens, public preview, accept endpoint, CLI invite
 Workspace creation and domain auto-join,workspace,should,yes,no,P2
 Guided onboarding (calendar capture providers retention),onboarding,must,yes,partial,P0; UI built in replica-build M0/M1; data layer is seed/fake until replica-backend
-Profile locale timezone and avatar,onboarding,must,yes,no,P0
-Roles owner admin member,workspace,must,yes,no,P0
+Profile locale timezone and avatar,onboarding,must,yes,partial,P0; done in replica-backend: GET/PATCH /api/v1/settings/profile
+Roles owner admin member,workspace,must,yes,yes,P0; done in replica-backend: memberships table, role checks on admin routes, RLS by org
 Groups for sharing and template assignment,workspace,should,yes,no,P3
-Deactivate and reactivate members,workspace,must,yes,no,P2
+Deactivate and reactivate members,workspace,must,yes,partial,P2; PATCH /api/v1/org/members/[id] updates member status
 Transfer workspace ownership,workspace,must,yes,no,P2
 Workspace-wide recording policy,workspace,must,yes,no,P2
-Private-by-default meeting visibility,workspace,must,yes,no,P1; Granola model
+Private-by-default meeting visibility,workspace,must,yes,yes,P1; meetings default to private and RLS enforces tenant scoping
 Admin feature gates for analytics chat and public links,workspace,should,yes,no,P5
-Retention policy per workspace,workspace,must,yes,no,P3
+Retention policy per workspace,workspace,must,yes,partial,P0; retention_policies table and settings exist, scheduled purge not built
 Legal hold for custodians,workspace,could,yes,no,P5; Granola
-Audit log of admin and data actions,workspace,must,yes,no,P5
-Audit log CSV export,workspace,should,yes,no,P5; Otter
+Audit log of admin and data actions,workspace,must,yes,yes,P0; done in replica-backend: audit_events for privileged mutations plus GET /api/v1/org/audit
+Audit log CSV export,workspace,should,yes,no,P1; CSV export not built
 Workspace usage analytics dashboard,workspace,should,yes,no,P5
-AI budget cap with alerts and hard stop,workspace,must,no,no,P0; replaces purchasable credits
-SMTP storage and SSO configuration UI,workspace,must,no,no,P1
-Google Calendar sync,calendar,must,yes,no,P0
+AI budget cap with alerts and hard stop,workspace,must,no,yes,P0; done in replica-backend: BUDGET_CAP_USD and per-org cap, hard stop before spend, usage_meters ledger
+SMTP storage and SSO configuration UI,workspace,must,no,partial,P0; settings and provider admin APIs exist, SMTP and SSO setup still env or CLI
+Google Calendar sync,calendar,must,yes,no,P1; calendar_connections table and token encryption exist, OAuth sync not built
 Microsoft Outlook calendar sync,calendar,should,yes,no,P4
 Auto-join rules per calendar or event,calendar,must,yes,no,P1
-Upcoming meetings widget,calendar,must,yes,partial,P0; UI built in replica-build M0/M1; data layer is seed/fake until replica-backend
+Upcoming meetings widget,calendar,must,yes,partial,P1; widget UI built in replica-build, still on demo calendar data
 Calendar event detail with past-meeting context,calendar,should,yes,no,P2
 Bot joins Zoom meetings,bot,must,yes,no,P1
 Bot joins Microsoft Teams meetings,bot,should,yes,no,P4
 Bot joins Webex meetings where the API allows,bot,could,yes,no,P4
-Send bot to a meeting link on demand,bot,must,yes,no,P1
+Send bot to a meeting link on demand,bot,must,yes,partial,P1; POST /api/v1/meetings/[id]/bot creates a bot job, provider client not built
 Auto-join from calendar events,bot,must,yes,no,P1
 Bot display name and avatar configuration,bot,must,yes,no,P1
 Lobby and waiting-room handling with host admit,bot,should,yes,no,P1
 Consent notice posted in meeting chat,bot,must,yes,no,P1; stricter than originals
 Bot posts live transcript link at meeting start,bot,must,yes,no,P1
 Bot posts summary and action items before meeting end,bot,should,yes,no,P2
-Bot retry and failure console,bot,must,yes,no,P1
+Bot retry and failure console,bot,must,yes,partial,P1; retry endpoint and bot console UI exist, provider client not built
 No-show and failed-join alert to the meeting owner,bot,must,yes,no,P1
 Desktop capture of system audio and microphone,botless,must,yes,no,P0
 Desktop meeting detection and start prompt,botless,must,yes,no,P1
@@ -52,28 +52,28 @@ Mobile in-person recording,botless,must,yes,no,P4
 Browser microphone recorder,botless,could,yes,no,P4
 Snapshots of shared screens during capture,botless,could,yes,no,P4; Granola and Otter
 Botless capture that works with headphones,botless,must,yes,no,P0
-Upload audio or video up to 5 GB,import,must,yes,partial,P0; UI built in replica-build M0/M1; data layer is seed/fake until replica-backend
+Upload audio or video up to 5 GB,import,must,yes,partial,P0; multipart upload implemented, default cap 500 MB via MAX_UPLOAD_MB
 Common audio and video codecs with detection,import,must,yes,no,P0
-Import progress cancel and retry,import,must,yes,partial,P0; UI built in replica-build M0/M1; data layer is seed/fake until replica-backend
+Import progress cancel and retry,import,must,yes,partial,P0; upload and per-stage retry implemented, progress UI still demo
 Import from a URL,import,could,no,no,P5
 Duplicate upload detection,import,should,no,no,P3
-Local Whisper ASR as the default provider,transcription,must,no,no,P0; originals are cloud-only
-Cloud ASR providers Deepgram AssemblyAI Groq OpenAI,transcription,should,yes,no,P2
-Custom OpenAI-compatible ASR endpoint,transcription,could,no,no,P3
-Streaming live transcription,transcription,must,yes,no,P1
-Batch transcription for uploads,transcription,must,yes,no,P0
+Local Whisper ASR as the default provider,transcription,must,no,partial,P0; apps/asr faster-whisper service built, enabled with ASR_PROVIDER=local
+Cloud ASR providers Deepgram AssemblyAI Groq OpenAI,transcription,should,yes,partial,should; OpenAI-compatible /audio/transcriptions supported, others not
+Custom OpenAI-compatible ASR endpoint,transcription,could,no,yes,could; ASR_BASE_URL plus ASR_API_KEY
+Streaming live transcription,transcription,must,yes,no,P1; segment callback endpoint exists, live streaming not built
+Batch transcription for uploads,transcription,must,yes,yes,P0; done in replica-backend: transcribe job runs on upload
 Multi-language transcription (30 or more),transcription,should,yes,no,P2
 Automatic language detection,transcription,must,yes,no,P1
 Multi-language mode within one meeting,transcription,should,yes,no,P2; Fireflies Business
-Per-meeting language override,transcription,must,yes,no,P1
-Transcript editing with undo and redo,transcription,must,yes,no,P2
+Per-meeting language override,transcription,must,yes,yes,P1; meeting language column is passed to the ASR provider
+Transcript editing with undo and redo,transcription,must,yes,partial,P1; segment PATCH endpoint edits a segment, no undo stack
 Find and replace inside a transcript,transcription,must,yes,no,P2
 Raw and cleaned text stored per segment,transcription,should,yes,no,P1; Fireflies raw_text
 Word-level timestamps for playback,transcription,should,yes,no,P2; Otter
 Low-confidence transcript flagging,transcription,should,no,no,P3
-Speaker diarization (who spoke when),speakers,must,yes,no,P1
+Speaker diarization (who spoke when),speakers,must,yes,partial,P1; provider speakers map to the speakers table, quality depends on the ASR provider
 Named speaker attribution from calendar attendees,speakers,must,yes,no,P1
-Me versus Them fallback labels,speakers,must,yes,no,P0; Granola
+Me versus Them fallback labels,speakers,must,yes,partial,P1; speakers.isMe and speakerIsMe in the API, fallback naming not finished
 Rename speakers,speakers,must,yes,no,P1
 Merge duplicate speakers,speakers,must,yes,no,P2; Otter
 Workspace speaker directory,speakers,should,yes,no,P2; Otter shared speakers
@@ -87,16 +87,16 @@ Live outline and running summary,live,should,yes,no,P3
 Live highlights and comments,live,should,yes,no,P2; Otter
 Post an AI answer into meeting chat,live,should,yes,no,P2
 Agenda tracking and private live coaching,live,could,yes,no,P5; Otter Live Assist
-Automatic summary after the meeting,notes,must,yes,no,P0
-Raw notes canvas that steers the summary,notes,must,yes,partial,P0; Granola; UI built in replica-build M0/M1; data layer is seed/fake until replica-backend
-Enhanced notes with regenerate,notes,must,yes,partial,P0; UI built in replica-build M0/M1; data layer is seed/fake until replica-backend
-Section-based summaries (overview decisions risks),notes,must,yes,partial,P0; UI built in replica-build M0/M1; data layer is seed/fake until replica-backend
-Concise versus detailed summary length,notes,must,yes,no,P1
-Citation chips back to transcript segments,notes,must,yes,partial,P0; UI built in replica-build M0/M1; data layer is seed/fake until replica-backend
-Accessible provenance labels for human versus AI text,notes,must,no,no,P0; replaces Granola colour convention
-Template-driven summary structure,notes,must,yes,partial,P1; UI built in replica-build M0/M1; data layer is seed/fake until replica-backend
-Regenerate with a different template,notes,must,yes,partial,P1; UI built in replica-build M0/M1; data layer is seed/fake until replica-backend
-Inline summary editing,notes,must,yes,no,P0
+Automatic summary after the meeting,notes,must,yes,yes,P0; done in replica-backend: summarize job chained after transcription
+Raw notes canvas that steers the summary,notes,must,yes,partial,P0; PUT notes stores raw markdown, steering UI still demo
+Enhanced notes with regenerate,notes,must,yes,yes,P0; done in replica-backend: POST notes/generate persists sections and citations
+Section-based summaries (overview decisions risks),notes,must,yes,yes,P0; note_sections rows are returned by the notes API
+Concise versus detailed summary length,notes,must,yes,partial,P1; summarize job accepts a length parameter, UI control not built
+Citation chips back to transcript segments,notes,must,yes,yes,P0; done in replica-backend: citations rows link sections to segments
+Accessible provenance labels for human versus AI text,notes,must,no,partial,P0; citation origin is human or ai in the API, UI chip work pending
+Template-driven summary structure,notes,must,yes,partial,P0; templateId is stored and passed to the LLM, template library UI still demo
+Regenerate with a different template,notes,must,yes,yes,P0; done in replica-backend: notes/generate accepts templateId
+Inline summary editing,notes,must,yes,partial,P1; raw markdown editing is persisted, inline section editing not built
 Summary staleness after transcript edits,notes,should,no,no,P2
 Keyword extraction,notes,must,yes,no,P1
 Timestamped topics and chapters,notes,must,yes,no,P1
@@ -112,18 +112,18 @@ Scheduled skills per meeting daily weekly monthly,automation,should,yes,no,P3
 Skill output feed,automation,should,yes,no,P3
 Route skill outputs to integrations,automation,should,yes,no,P4
 Test-run a skill before enabling,automation,could,no,no,P4
-Auto-extract action items,actions,must,yes,partial,P0; UI built in replica-build M0/M1; data layer is seed/fake until replica-backend
-Assign action item owners and due dates,actions,must,yes,no,P1
-Task list across all meetings,actions,must,yes,no,P2
+Auto-extract action items,actions,must,yes,yes,P0; done in replica-backend: summarize job writes action_items with a source segment
+Assign action item owners and due dates,actions,must,yes,partial,P1; action item rows carry assignee and due date, assignment UI not built
+Task list across all meetings,actions,must,yes,partial,P0; GET /api/v1/action-items returns every tenant action item
 Push tasks to Jira Linear Asana ClickUp or Trello,actions,should,yes,no,P4
 Two-way task status sync,actions,could,no,no,P5
 Manual task creation,actions,should,yes,no,P2
-Keyword search across meetings,search,must,yes,partial,P0; UI built in replica-build M0/M1; data layer is seed/fake until replica-backend
-Filter by speaker date folder channel and language,search,must,yes,no,P2
-Semantic search over transcripts and notes,search,must,yes,no,P0
-Ask AI across all meetings,search,must,yes,partial,P3; UI built in replica-build M0/M1; data layer is seed/fake until replica-backend
+Keyword search across meetings,search,must,yes,yes,P0; done in replica-backend: tsvector plus trigram search over transcript segments
+Filter by speaker date folder channel and language,search,must,yes,partial,P1; search accepts speaker and date filters
+Semantic search over transcripts and notes,search,must,yes,partial,P1; embeddings job and search route exist, needs pgvector
+Ask AI across all meetings,search,must,yes,partial,P0; search API and UI exist, cross-meeting chat model not wired
 Scoped chat over a meeting folder channel person or selection,search,must,yes,no,P3
-Citations in chat answers,search,must,yes,partial,P3; UI built in replica-build M0/M1; data layer is seed/fake until replica-backend
+Citations in chat answers,search,must,yes,partial,P0; citation rows exist and are returned by the notes API
 Chat history,search,must,yes,no,P3
 Chat and Work modes (answer versus artifact),search,could,yes,no,P5; Otter
 Model selection for chat,search,should,yes,no,P3
@@ -146,14 +146,14 @@ Soundbites and clips,sharing,must,yes,no,P3
 Playlists of clips,sharing,should,yes,no,P3
 Shared with me view,sharing,must,yes,no,P2
 Request access flow,sharing,should,yes,no,P2
-Folders,organization,must,yes,no,P2
+Folders,organization,must,yes,yes,P0; done in replica-backend: folders table plus GET and POST /api/v1/folders
 Spaces for personal team and custom grouping,organization,should,yes,no,P2
-Channels with channel-scoped chat,organization,should,yes,no,P3
+Channels with channel-scoped chat,organization,should,yes,partial,P0; channels table plus GET and POST /api/v1/channels, channel chat not built
 Auto-add recurring meetings to a folder,organization,should,yes,no,P2
 People directory built from meetings,organization,must,yes,no,P2
 Company directory,organization,should,yes,no,P3
 Tags,organization,should,yes,no,P2
-Trash and restore,organization,must,yes,no,P2
+Trash and restore,organization,must,yes,yes,P0; done in replica-backend: soft delete plus POST /api/v1/meetings/[id]/restore
 Bulk move and delete,organization,must,yes,no,P2
 A meeting can live in multiple folders,organization,should,yes,no,P2
 Speaker talk-time analytics,analytics,should,yes,no,P3
@@ -173,34 +173,34 @@ Zapier or n8n generic automation bridge,integrations,should,yes,no,P4
 Confluence and SharePoint export,integrations,could,yes,no,P5
 Snowflake or S3 warehouse export,integrations,could,yes,no,P5
 Calendar and email provider integrations,integrations,must,yes,no,P0
-REST API with scoped keys,api,must,yes,no,P4
+REST API with scoped keys,api,must,yes,partial,P1; cookie-session API implemented, scoped API keys not built
 Webhooks with signing and retries,api,must,yes,no,P4
 MCP server for external AI clients,api,should,yes,no,P4
 GraphQL read API,api,could,yes,no,P5; Fireflies GraphQL
-Rate limits and quotas,api,should,yes,no,P4
-API documentation and OpenAPI spec,api,must,yes,no,P4
-CLI for admin and operations,api,must,no,no,P0
-Web application,clients,must,yes,no,P0
+Rate limits and quotas,api,should,yes,yes,should; done in replica-backend: rateLimit helper applied to auth endpoints
+API documentation and OpenAPI spec,api,must,yes,no,P1; route inventory in replica/backend.md, OpenAPI not generated
+CLI for admin and operations,api,must,no,yes,P0; done in replica-backend: create-admin, reset-password, verify-email, invite
+Web application,clients,must,yes,partial,P0; app shell plus API-backed pages for home, meetings, meeting detail, search and import
 Desktop application for macOS and Windows,clients,must,yes,no,P1
 Browser extension for Chrome and Chromium,clients,must,yes,no,P4
 Mobile apps for iOS and Android,clients,should,yes,no,P4
 Apple Watch and home-screen widgets,clients,could,yes,no,P5
-Consent record stored per meeting,security,must,yes,no,P0
+Consent record stored per meeting,security,must,yes,yes,P0; done in replica-backend: consent_records and the consent endpoint
 Recording indicator on every capture surface,security,must,yes,no,P0
 Transcript-only mode with zero audio retention,security,must,yes,no,P1; Granola
-Encryption at rest and in transit,security,must,yes,no,P0
-Data export for portability,security,must,yes,no,P2
+Encryption at rest and in transit,security,must,yes,partial,P0; AES-256-GCM for stored secrets, TLS termination is the operator job
+Data export for portability,security,must,yes,partial,P0; GET /api/v1/meetings/[id]/export exists, full-account export not built
 Account and workspace deletion,security,must,yes,no,P2
 Enforce SSO for the workspace,security,should,yes,no,P5
 IP allowlist,security,could,no,no,P5
 TOTP two-factor authentication,security,should,yes,no,P4
-Security headers and rate limiting,security,must,no,no,P0
-Docker Compose one-command deploy,ops,must,no,no,P0
-Local Whisper CPU and GPU profiles,ops,must,no,no,P0
-S3 or MinIO storage configuration,ops,must,no,no,P0
+Security headers and rate limiting,security,must,no,partial,P0; rate limiting and same-origin checks done, response security headers pending
+Docker Compose one-command deploy,ops,must,no,yes,P0; done in replica-backend: infra/compose with db, redis, minio, web, worker, asr and caddy
+Local Whisper CPU and GPU profiles,ops,must,no,partial,P0; apps/asr service with ASR_DEVICE and ASR_COMPUTE_TYPE settings
+S3 or MinIO storage configuration,ops,must,no,yes,P0; done in replica-backend: STORAGE_DRIVER=s3 with a MinIO service in compose
 Backup and restore scripts,ops,must,no,no,P1
-Health checks and metrics endpoint,ops,must,no,no,P1
-Upgrade and migration path,ops,must,no,no,P1
+Health checks and metrics endpoint,ops,must,no,partial,P0; /api/healthz and worker health server exist, metrics not exported
+Upgrade and migration path,ops,must,no,partial,should; versioned SQL migrations with a checksum guard and a migrate service in compose
 Air-gapped offline mode,ops,could,no,no,P5
 Multi-architecture images amd64 and arm64,ops,should,no,no,P5
 Purchasable AI credits,skip,skip,yes,skip,Deliberate no; budget cap replaces it

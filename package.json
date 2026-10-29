@@ -3,14 +3,19 @@
   "version": "0.1.0",
   "private": true,
   "license": "AGPL-3.0-only",
-  "description": "Click — open-source, self-hosted AI meeting assistant",
+  "description": "Click \u2014 open-source, self-hosted AI meeting assistant",
   "packageManager": "pnpm@10.26.1",
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
-    "tokens": "node scripts/build-tokens.mjs"
+    "tokens": "node scripts/build-tokens.mjs",
+    "db:migrate": "pnpm --filter @click/db migrate",
+    "db:seed": "pnpm --filter @click/db seed",
+    "db:cli": "pnpm --filter @click/db cli",
+    "worker": "pnpm --filter @click/worker dev:worker",
+    "asr": "cd apps/asr && uvicorn main:app --reload --port 8000"
   },
   "devDependencies": {
     "turbo": "^2.5.5",

@@ -8,13 +8,14 @@ import {
   Skeleton,
 } from "@click/ui";
 import { data } from "@click/core";
+import { getUsage, listMeetings } from "@/lib/api";
 import { CalendarEventCard, MeetingCard } from "@click/ui";
 
 export default async function HomePage() {
   const [{ meetings }, events, usage] = await Promise.all([
-    data.listMeetings({ limit: 6 }),
+    listMeetings({ limit: 6 }),
     data.listCalendarEvents(),
-    data.getUsage(),
+    getUsage(),
   ]);
 
   const upcoming = events.filter((e) => new Date(e.startsAt).getTime() > Date.now() - 30 * 60 * 1000);

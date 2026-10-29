@@ -115,7 +115,16 @@ export function Sidebar() {
   );
 }
 
-export function Header({ title }: { title?: string }) {
+export interface HeaderUser {
+  name: string | null;
+  email: string;
+  orgName: string | null;
+}
+
+export function Header({ title, user }: { title?: string; user?: HeaderUser }) {
+  const [menuOpen, setMenuOpen] = React.useState(false);
+  const initials = (user?.name ?? user?.email ?? "?").trim().slice(0, 1).toUpperCase();
+
   return (
     <header className="flex h-14 items-center justify-between gap-4 border-b border-border bg-surface px-4">
       <div className="flex items-center gap-3">
@@ -127,12 +136,59 @@ export function Header({ title }: { title?: string }) {
           ☰
         </button>
         <h1 className="truncate text-base font-semibold text-text">{title ?? "Click"}</h1>
+        {user?.orgName ? (
+          <span className="hidden truncate rounded-full bg-surface-2 px-2 py-0.5 text-xs text-text-muted sm:inline">
+            {user.orgName}
+          </span>
+        ) : null}
       </div>
       <div className="flex items-center gap-2">
         <Button variant="secondary" size="sm">
           Record
         </Button>
         <Button size="sm">New meeting</Button>
+        {user ? (
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setMenuOpen((open) => !open)}
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              className="inline-flex size-8 items-center justify-center rounded-full bg-accent text-xs font-semibold text-on-accent"
+            >
+              {initials}
+            </button>
+            {menuOpen ? (
+              <div
+                role="menu"
+                className="absolute right-0 top-10 z-50 w-56 rounded-lg border border-border bg-surface p-2 shadow-lg"
+              >
+                <p className="px-2 py-1 text-sm font-medium text-text">{user.name ?? user.email}</p>
+                <p className="px-2 pb-2 text-xs text-text-muted">{user.email}</p>
+                <Link
+                  href="/settings"
+                  role="menuitem"
+                  className="block rounded-md px-2 py-1.5 text-sm text-text-muted hover:bg-surface-2 hover:text-text"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Settings
+                </Link>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={async () => {
+                    setMenuOpen(false);
+                    await fetch("/api/v1/auth/logout", { method: "POST" });
+                    window.location.href = "/login";
+                  }}
+                  className="block w-full rounded-md px-2 py-1.5 text-left text-sm text-text-muted hover:bg-surface-2 hover:text-text"
+                >
+                  Sign out
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </header>
   );
