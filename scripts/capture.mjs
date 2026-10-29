@@ -12,6 +12,7 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import puppeteer from "puppeteer-core";
+import { ensureSession } from "./lib/session.mjs";
 
 const CHROME = process.env.CHROME_PATH ?? "/repl/tools/bin/chromium";
 const BASE_URL = process.env.CAPTURE_BASE_URL ?? "http://localhost:3000";
@@ -62,21 +63,11 @@ async function main() {
   });
 
   await page.goto(`${BASE_URL}/login`, { waitUntil: "domcontentloaded", timeout: 60000 });
-  const login = await page.evaluate(
-    async (email, password) => {
-      const response = await fetch("/api/v1/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      return { status: response.status, body: await response.text() };
-    },
-    EMAIL,
-    PASSWORD,
-  );
-  if (login.status !== 200) {
-    throw new Error(`login failed (${login.status}): ${login.body}`);
-  }
+  await ensureSession(page, {
+    baseUrl: BASE_URL,
+    email: EMAIL,
+    password: PASSWORD,
+  });
   await sleep(300);
 
   await page.goto(`${BASE_URL}${args.route}`, { waitUntil: "networkidle2", timeout: 60000 });
