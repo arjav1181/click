@@ -1,6 +1,14 @@
 @import "@click/ui/styles.css";
 @import "tailwindcss";
 
+/*
+ * The shared UI package lives outside this app's source tree, so Tailwind's
+ * automatic detection never sees it. Without this, utilities that only the
+ * package uses (notably `fixed`, used by every Dialog and Toast) are missing
+ * from the build and those elements render inline.
+ */
+@source "../../../../packages/ui/src";
+
 @theme inline {
   --color-bg: var(--color-bg);
   --color-surface: var(--color-surface);
