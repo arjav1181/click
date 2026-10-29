@@ -4,6 +4,7 @@ import { enqueue } from "@click/backend";
 import { assertSameOrigin, handler, json, parseJson, clientIp, ApiError } from "@/server/http";
 import { requireOrgSession } from "@/server/auth";
 import { recordAudit } from "@/server/audit";
+import { requireFeature } from "@/server/policy";
 
 const schema = z.object({ stage: z.enum(["transcribe", "summarize"]) });
 
@@ -20,10 +21,12 @@ export const POST = handler(async (request, context: { params: Promise<{ id: str
   const body = await parseJson(request, schema);
 
   if (body.stage === "transcribe") {
+    await requireFeature(session.orgId, session.id, "transcription");
     const recording = await meetingsRepo.getMeetingRecording(ctx, id);
     if (!recording) throw new ApiError(409, "no_recording", "This meeting has no stored recording.");
     await enqueue("transcribe", { orgId: session.orgId, meetingId: id, recordingId: recording.id });
   } else {
+    await requireFeature(session.orgId, session.id, "summaries");
     const transcript = await meetingsRepo.getTranscript(ctx, id);
     if (!transcript.transcript) throw new ApiError(409, "no_transcript", "This meeting has no transcript.");
     await enqueue("summarize", { orgId: session.orgId, meetingId: id });

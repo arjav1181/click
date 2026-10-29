@@ -5,6 +5,7 @@ import { enqueue } from "@click/backend";
 import { assertSameOrigin, handler, json, parseJson, clientIp, ApiError } from "@/server/http";
 import { requireOrgSession } from "@/server/auth";
 import { recordAudit } from "@/server/audit";
+import { requireBudget, requireFeature } from "@/server/policy";
 
 const schema = z.object({
   templateId: z.string().uuid().nullable().optional(),
@@ -14,6 +15,8 @@ const schema = z.object({
 export const POST = handler(async (request, context: { params: Promise<{ id: string }> }) => {
   assertSameOrigin(request);
   const session = await requireOrgSession();
+  await requireFeature(session.orgId, session.id, "summaries");
+  await requireBudget(session.orgId);
   const { id } = await context.params;
   const ctx = { orgId: session.orgId, userId: session.id };
   const meeting = await meetingsRepo.getMeeting(ctx, id);

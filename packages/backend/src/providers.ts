@@ -1,7 +1,8 @@
-import { sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
-import { withTenant } from "@click/db";
+import { providerConfigs, withTenant, workspaceRepo } from "@click/db";
 import { aiConfig, budgetCapDefault } from "./env";
+import { decryptSecret } from "./crypto";
 
 export class BudgetExceededError extends Error {
   readonly code = "budget_exceeded";
@@ -57,6 +58,77 @@ export interface SummaryResult {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/**
+ * A per-workspace provider override. A self-hosted install can point the
+ * pipeline at its own endpoint, model and key without touching the process
+ * environment.
+ */
+export interface ProviderOverride {
+  provider: string;
+  baseUrl?: string;
+  apiKey?: string;
+  model?: string;
+  enabled: boolean;
+}
+
+/**
+ * Reads the default provider row for a workspace and decrypts its key.
+ * Returns null when the workspace has no override, so the caller can fall
+ * back to the environment configuration.
+ */
+export async function resolveProviderOverride(
+  orgId: string,
+  kind: "asr" | "llm" | "embedding",
+): Promise<ProviderOverride | null> {
+  const ctx = { orgId, userId: "00000000-0000-0000-0000-000000000000" };
+  const row = await withTenant(ctx, async (tx) => {
+    const rows = await tx
+      .select({
+        provider: providerConfigs.provider,
+        baseUrl: providerConfigs.baseUrl,
+        apiKeyEnc: providerConfigs.apiKeyEnc,
+        model: providerConfigs.model,
+        status: providerConfigs.status,
+        options: providerConfigs.options,
+      })
+      .from(providerConfigs)
+      .where(
+        and(
+          eq(providerConfigs.orgId, orgId),
+          eq(providerConfigs.kind, kind),
+          eq(providerConfigs.isDefault, true),
+        ),
+      )
+      .limit(1);
+    return rows[0] ?? null;
+  });
+  if (!row) return null;
+  let apiKey: string | undefined;
+  if (row.apiKeyEnc) {
+    try {
+      apiKey = decryptSecret(row.apiKeyEnc);
+    } catch {
+      apiKey = undefined;
+    }
+  }
+  const options = (row.options ?? {}) as Record<string, unknown>;
+  const enabled = options.enabled !== false && row.status !== "error";
+  // A provider row without an explicit model falls back to the workspace
+  // default an admin picked under Admin → AI.
+  const policy = await workspaceRepo.getAiPolicy({
+    orgId,
+    userId: "00000000-0000-0000-0000-000000000000",
+  });
+  const defaultModel = policy.modelDefaults[kind === "embedding" ? "embeddings" : kind];
+  return {
+    provider: row.provider,
+    baseUrl: row.baseUrl ?? undefined,
+    apiKey,
+    model: row.model ?? defaultModel ?? undefined,
+    enabled,
+  };
+}
+
 async function fetchWithRetry(url: string, init: RequestInit, attempts = 3): Promise<Response> {
   let lastError: unknown;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
@@ -76,7 +148,7 @@ async function fetchWithRetry(url: string, init: RequestInit, attempts = 3): Pro
   throw lastError instanceof Error ? lastError : new Error("Provider request failed");
 }
 
-function mockTranscript(filename: string): TranscriptionResult {
+function mockTranscript(filename: string, model?: string): TranscriptionResult {
   const script: Array<[string, number, number, string]> = [
     ["Ava", 0, 6400, "Thanks everyone for joining. I want to keep this to thirty minutes and leave with owners for each item."],
     ["Sam", 6400, 13200, "The main update is that the onboarding flow is finished. The calendar connection is the only piece still open."],
@@ -94,7 +166,7 @@ function mockTranscript(filename: string): TranscriptionResult {
     language: aiConfig().asr.language || "en",
     durationMs: 68_400,
     provider: provider === "mock" ? "mock" : provider,
-    model: provider === "mock" ? "click-demo-asr" : aiConfig().asr.model,
+    model: model ?? (provider === "mock" ? "click-demo-asr" : aiConfig().asr.model),
     segments: script.map(([speaker, startMs, endMs, text]) => ({
       speaker,
       startMs,
@@ -115,20 +187,28 @@ export async function transcribe(input: {
   filename: string;
   mimeType: string;
   language?: string;
+  override?: ProviderOverride | null;
 }): Promise<TranscriptionResult> {
   const config = aiConfig().asr;
-  if (config.provider === "mock") return mockTranscript(input.filename);
+  // A provider an admin switched off falls back to the operator's env config.
+  const override = input.override?.enabled === false ? null : input.override ?? null;
+  const provider = override?.provider ?? config.provider;
+  const model = override?.model ?? config.model;
+  const apiKey = override?.apiKey ?? config.apiKey;
+  const baseUrl = override?.baseUrl ?? process.env.ASR_BASE_URL ?? "https://api.openai.com/v1";
+  if (provider === "mock") return mockTranscript(input.filename, override?.model);
 
   const form = new FormData();
   const bytes = new Uint8Array(input.audio.byteLength);
   bytes.set(input.audio);
   form.append("file", new Blob([bytes], { type: input.mimeType }), input.filename);
   if (input.language) form.append("language", input.language);
-  form.append("model", config.model);
+  form.append("model", model);
 
-  if (config.provider === "local") {
-    if (!config.url) throw new Error("ASR_URL is not set for the local ASR provider.");
-    const response = await fetchWithRetry(`${config.url.replace(/\/$/, "")}/transcribe`, {
+  if (provider === "local") {
+    const url = override?.baseUrl ?? config.url;
+    if (!url) throw new Error("ASR_URL is not set for the local ASR provider.");
+    const response = await fetchWithRetry(`${url.replace(/\/$/, "")}/transcribe`, {
       method: "POST",
       body: form,
     });
@@ -149,17 +229,16 @@ export async function transcribe(input: {
         confidence: s.confidence ?? null,
       })),
       provider: "local",
-      model: config.model,
+      model,
     };
   }
 
-  if (!config.apiKey) throw new Error("ASR_API_KEY is not set for the OpenAI-compatible provider.");
+  if (!apiKey) throw new Error("ASR_API_KEY is not set for the OpenAI-compatible provider.");
   form.append("response_format", "verbose_json");
   form.append("timestamp_granularities[]", "segment");
-  const base = process.env.ASR_BASE_URL ?? "https://api.openai.com/v1";
-  const response = await fetchWithRetry(`${base.replace(/\/$/, "")}/audio/transcriptions`, {
+  const response = await fetchWithRetry(`${baseUrl.replace(/\/$/, "")}/audio/transcriptions`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${config.apiKey}` },
+    headers: { Authorization: `Bearer ${apiKey}` },
     body: form,
   });
   if (!response.ok) {
@@ -188,7 +267,7 @@ export async function transcribe(input: {
     durationMs: Math.round((body.duration ?? 0) * 1000),
     segments,
     provider: "openai-compatible",
-    model: config.model,
+    model,
   };
 }
 
@@ -199,7 +278,7 @@ interface TranscriptLine {
   text: string;
 }
 
-function heuristicSummary(lines: TranscriptLine[], template: string): SummaryResult {
+function heuristicSummary(lines: TranscriptLine[], template: string, model?: string): SummaryResult {
   const pick = (test: (line: TranscriptLine) => boolean, limit = 5) =>
     lines.filter(test).slice(0, limit);
 
@@ -248,7 +327,7 @@ function heuristicSummary(lines: TranscriptLine[], template: string): SummaryRes
       sourceSegmentIndex: line.index,
     })),
     citations,
-    model: `mock-summary${template ? `:${template}` : ""}`,
+    model: model ?? `mock-summary${template ? `:${template}` : ""}`,
     usage: {
       inputTokens: Math.ceil(lines.reduce((sum, line) => sum + line.text.length, 0) / 4),
       outputTokens: Math.ceil(sections.reduce((sum, section) => sum + section.body.length, 0) / 4),
@@ -294,11 +373,20 @@ export async function summarize(input: {
   meetingTitle: string;
   template?: string;
   length?: "short" | "standard" | "detailed";
+  override?: ProviderOverride | null;
 }): Promise<SummaryResult> {
   const config = aiConfig().llm;
-  if (config.provider === "mock") return heuristicSummary(input.segments, input.template ?? "");
+  // A provider an admin switched off falls back to the operator's env config.
+  const override = input.override?.enabled === false ? null : input.override ?? null;
+  const provider = override?.provider ?? config.provider;
+  const baseUrl = override?.baseUrl ?? config.baseUrl;
+  const apiKey = override?.apiKey ?? config.apiKey;
+  const model = override?.model ?? config.model;
+  if (provider === "mock") {
+    return heuristicSummary(input.segments, input.template ?? "", override?.model);
+  }
 
-  if (!config.apiKey && !/localhost|127\.0\.0\.1/.test(config.baseUrl)) {
+  if (!apiKey && !/localhost|127\.0\.0\.1/.test(baseUrl)) {
     throw new Error("LLM_API_KEY is not set. Add a key or set LLM_PROVIDER=mock.");
   }
 
@@ -329,14 +417,14 @@ Return JSON with this shape:
 }
 Use these section keys when the material supports them: overview, decisions, risks, open_questions, action_items. Never invent facts, names, dates or owners that are not in the transcript. If there are no action items, return an empty array.`;
 
-  const response = await fetchWithRetry(`${config.baseUrl.replace(/\/$/, "")}/chat/completions`, {
+  const response = await fetchWithRetry(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
+      ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
     },
     body: JSON.stringify({
-      model: config.model,
+      model,
       temperature: 0.2,
       max_tokens: config.maxTokens,
       response_format: { type: "json_object" },
@@ -375,7 +463,7 @@ Use these section keys when the material supports them: overview, decisions, ris
       segmentIndex: citation.segment_index,
       quote: citation.quote,
     })),
-    model: config.model,
+    model,
     usage: {
       inputTokens: body.usage?.prompt_tokens ?? 0,
       outputTokens: body.usage?.completion_tokens ?? 0,
@@ -383,17 +471,25 @@ Use these section keys when the material supports them: overview, decisions, ris
   };
 }
 
-export async function embedTexts(texts: string[]): Promise<number[][] | null> {
+export async function embedTexts(
+  texts: string[],
+  override?: ProviderOverride | null,
+): Promise<number[][] | null> {
   const config = aiConfig().embeddings;
-  if (!config.enabled || texts.length === 0) return null;
-  if (!config.baseUrl) throw new Error("EMBEDDING_BASE_URL is not set.");
-  const response = await fetchWithRetry(`${config.baseUrl.replace(/\/$/, "")}/embeddings`, {
+  const active = override?.enabled === false ? null : override ?? null;
+  const enabled = active ? active.provider !== "off" : config.enabled;
+  if (!enabled || texts.length === 0) return null;
+  const baseUrl = active?.baseUrl ?? config.baseUrl;
+  const apiKey = active?.apiKey ?? config.apiKey;
+  const model = active?.model ?? config.model;
+  if (!baseUrl) throw new Error("EMBEDDING_BASE_URL is not set.");
+  const response = await fetchWithRetry(`${baseUrl.replace(/\/$/, "")}/embeddings`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
+      ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
     },
-    body: JSON.stringify({ model: config.model, input: texts }),
+    body: JSON.stringify({ model, input: texts }),
   });
   if (!response.ok) throw new Error(`Embedding provider returned ${response.status}`);
   const body = (await response.json()) as {
@@ -403,21 +499,33 @@ export async function embedTexts(texts: string[]): Promise<number[][] | null> {
   return rows.sort((a, b) => a.index - b.index).map((row) => row.embedding);
 }
 
+/**
+ * Blocks AI spend once the workspace has used its monthly cap. The cap comes
+ * from the workspace policy first and falls back to the operator default.
+ */
 export async function assertBudget(orgId: string): Promise<void> {
-  const cap = budgetCapDefault();
-  if (cap <= 0) return;
+  const fallback = budgetCapDefault();
+  // The workspace policy cap comes first: it survives a period rollover, when
+  // the usage_meters row for the new month does not exist yet.
+  const policy = await workspaceRepo.getAiPolicy({
+    orgId,
+    userId: "00000000-0000-0000-0000-000000000000",
+  });
+  const policyCap = policy.budgetCap;
   const spent = await withTenant({ orgId, userId: "00000000-0000-0000-0000-000000000000" }, async (tx) => {
     const result = await tx.execute(sql`
       select coalesce(cost_estimate, 0)::float as spent,
-             coalesce(budget_cap, ${cap})::float as cap
+             coalesce(budget_cap, ${fallback})::float as cap
       from usage_meters
       where org_id = ${orgId} and period_start = date_trunc('month', now())
       limit 1
     `);
     return (result.rows[0] as { spent: number; cap: number } | undefined) ?? null;
   });
-  if (spent && spent.cap > 0 && spent.spent >= spent.cap) {
-    throw new BudgetExceededError(spent.cap, spent.spent);
+  const cap = policyCap > 0 ? policyCap : spent?.cap ?? fallback;
+  if (cap <= 0) return;
+  if (spent && spent.spent >= cap) {
+    throw new BudgetExceededError(cap, spent.spent);
   }
 }
 
@@ -434,13 +542,21 @@ export async function recordUsage(
     (tokensIn / 1000) * pricing.llmInPer1k +
     (tokensOut / 1000) * pricing.llmOutPer1k;
 
+  // A new period starts with the workspace cap, so the ledger always carries
+  // the limit that applies to the spend it records.
+  const policy = await workspaceRepo.getAiPolicy({
+    orgId,
+    userId: "00000000-0000-0000-0000-000000000000",
+  });
+  const cap = policy.budgetCap > 0 ? policy.budgetCap : budgetCapDefault();
+
   await withTenant({ orgId, userId: "00000000-0000-0000-0000-000000000000" }, async (tx) => {
     await tx.execute(sql`
       insert into usage_meters
         (org_id, period_start, period_end, asr_seconds, llm_tokens_in, llm_tokens_out, cost_estimate, budget_cap)
       values
         (${orgId}, date_trunc('month', now()), date_trunc('month', now()) + interval '1 month',
-         ${asrSeconds}, ${tokensIn}, ${tokensOut}, ${cost}, ${budgetCapDefault() > 0 ? budgetCapDefault() : null})
+         ${asrSeconds}, ${tokensIn}, ${tokensOut}, ${cost}, ${cap > 0 ? cap : null})
       on conflict (org_id, period_start) do update set
         asr_seconds = usage_meters.asr_seconds + excluded.asr_seconds,
         llm_tokens_in = usage_meters.llm_tokens_in + excluded.llm_tokens_in,

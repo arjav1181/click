@@ -3,10 +3,13 @@ import { enqueue, newStorageKey, putObject, uploadLimits, extensionFor } from "@
 import { assertSameOrigin, handler, json, clientIp, ApiError } from "@/server/http";
 import { requireOrgSession } from "@/server/auth";
 import { recordAudit } from "@/server/audit";
+import { requireBudget, requireFeature } from "@/server/policy";
 
 export const POST = handler(async (request) => {
   assertSameOrigin(request);
   const session = await requireOrgSession();
+  await requireFeature(session.orgId, session.id, "transcription");
+  await requireBudget(session.orgId);
   const limits = uploadLimits();
   const declared = Number(request.headers.get("content-length") ?? 0);
   if (declared > limits.maxBytes) {

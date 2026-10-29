@@ -9,6 +9,7 @@ import {
   memberships,
   meetings,
   organizations,
+  providerConfigs,
   spaces,
   users,
   usageMeters,
@@ -348,6 +349,216 @@ export async function updateOrganization(
     if (Object.keys(values).length > 0) {
       await tx.update(organizations).set(values).where(eq(organizations.id, ctx.orgId));
     }
+    return true;
+  });
+}
+
+/**
+ * Workspace AI policy. It lives in the organization settings blob so a
+ * self-hosted install has one place to look for gates, defaults and the cap.
+ */
+export interface AiPolicy {
+  budgetCap: number;
+  featureGates: {
+    summaries: boolean;
+    actionItems: boolean;
+    semanticSearch: boolean;
+    transcription: boolean;
+  };
+  modelDefaults: {
+    asr: string | null;
+    llm: string | null;
+    embeddings: string | null;
+  };
+}
+
+export const defaultAiPolicy: AiPolicy = {
+  budgetCap: 0,
+  featureGates: {
+    summaries: true,
+    actionItems: true,
+    semanticSearch: false,
+    transcription: true,
+  },
+  modelDefaults: {
+    asr: null,
+    llm: null,
+    embeddings: null,
+  },
+};
+
+function readPolicy(settings: unknown): AiPolicy {
+  const raw = (settings ?? {}) as Record<string, unknown>;
+  const gates = (raw.feature_gates ?? {}) as Record<string, unknown>;
+  const defaults = (raw.model_defaults ?? {}) as Record<string, unknown>;
+  return {
+    budgetCap: Number(raw.ai_budget_cap ?? 0) || 0,
+    featureGates: {
+      summaries: gates.summaries !== false,
+      actionItems: gates.action_items !== false,
+      semanticSearch: gates.semantic_search === true,
+      transcription: gates.transcription !== false,
+    },
+    modelDefaults: {
+      asr: typeof defaults.asr === "string" ? defaults.asr : null,
+      llm: typeof defaults.llm === "string" ? defaults.llm : null,
+      embeddings: typeof defaults.embeddings === "string" ? defaults.embeddings : null,
+    },
+  };
+}
+
+export async function getAiPolicy(ctx: TenantContext): Promise<AiPolicy> {
+  return withTenant(ctx, async (tx) => {
+    const rows = await tx
+      .select({ settings: organizations.settings })
+      .from(organizations)
+      .where(eq(organizations.id, ctx.orgId))
+      .limit(1);
+    return readPolicy(rows[0]?.settings);
+  });
+}
+
+export async function updateAiPolicy(
+  ctx: TenantContext,
+  patch: {
+    budgetCap?: number;
+    featureGates?: Partial<AiPolicy["featureGates"]>;
+    modelDefaults?: Partial<AiPolicy["modelDefaults"]>;
+  },
+) {
+  return withTenant(ctx, async (tx) => {
+    const rows = await tx
+      .select({ settings: organizations.settings })
+      .from(organizations)
+      .where(eq(organizations.id, ctx.orgId))
+      .limit(1);
+    const current = readPolicy(rows[0]?.settings);
+    const next: AiPolicy = {
+      budgetCap: patch.budgetCap ?? current.budgetCap,
+      featureGates: { ...current.featureGates, ...(patch.featureGates ?? {}) },
+      modelDefaults: { ...current.modelDefaults, ...(patch.modelDefaults ?? {}) },
+    };
+    const settings = {
+      ai_budget_cap: next.budgetCap,
+      feature_gates: {
+        summaries: next.featureGates.summaries,
+        action_items: next.featureGates.actionItems,
+        semantic_search: next.featureGates.semanticSearch,
+        transcription: next.featureGates.transcription,
+      },
+      model_defaults: {
+        asr: next.modelDefaults.asr,
+        llm: next.modelDefaults.llm,
+        embeddings: next.modelDefaults.embeddings,
+      },
+    };
+    await tx
+      .update(organizations)
+      .set({ settings, updatedAt: new Date() })
+      .where(eq(organizations.id, ctx.orgId));
+    return next;
+  });
+}
+
+/** Per-workspace provider overrides, used for bring-your-own-key installs. */
+export async function listProviderConfigs(ctx: TenantContext) {
+  return withTenant(ctx, async (tx) => {
+    const rows = await tx
+      .select({
+        id: providerConfigs.id,
+        kind: providerConfigs.kind,
+        provider: providerConfigs.provider,
+        baseUrl: providerConfigs.baseUrl,
+        model: providerConfigs.model,
+        options: providerConfigs.options,
+        isDefault: providerConfigs.isDefault,
+        status: providerConfigs.status,
+        hasKey: sql<boolean>`${providerConfigs.apiKeyEnc} is not null`,
+        updatedAt: providerConfigs.updatedAt,
+      })
+      .from(providerConfigs)
+      .where(eq(providerConfigs.orgId, ctx.orgId))
+      .orderBy(asc(providerConfigs.kind));
+    return rows.map((row) => ({ ...row, updatedAt: row.updatedAt.toISOString() }));
+  });
+}
+
+export async function upsertProviderConfig(
+  ctx: TenantContext,
+  input: {
+    kind: string;
+    provider: string;
+    baseUrl?: string | null;
+    apiKeyEnc?: string | null;
+    model?: string | null;
+    status?: string;
+    isDefault?: boolean;
+    options?: Record<string, unknown>;
+  },
+) {
+  return withTenant(ctx, async (tx) => {
+    if (input.isDefault) {
+      await tx
+        .update(providerConfigs)
+        .set({ isDefault: false })
+        .where(and(eq(providerConfigs.orgId, ctx.orgId), eq(providerConfigs.kind, input.kind)));
+    }
+    const rows = await tx
+      .insert(providerConfigs)
+      .values({
+        orgId: ctx.orgId,
+        kind: input.kind as never,
+        provider: input.provider,
+        baseUrl: input.baseUrl ?? null,
+        apiKeyEnc: input.apiKeyEnc ?? null,
+        model: input.model ?? null,
+        status: (input.status ?? "unconfigured") as never,
+        isDefault: input.isDefault ?? true,
+        options: input.options ?? {},
+      })
+      .onConflictDoUpdate({
+        target: [providerConfigs.orgId, providerConfigs.kind, providerConfigs.provider],
+        set: {
+          baseUrl: input.baseUrl ?? null,
+          apiKeyEnc: input.apiKeyEnc ?? null,
+          model: input.model ?? null,
+          status: (input.status ?? "unconfigured") as never,
+          isDefault: input.isDefault ?? true,
+          options: input.options ?? {},
+          updatedAt: new Date(),
+        },
+      })
+      .returning({ id: providerConfigs.id });
+    return rows[0];
+  });
+}
+
+export async function deleteProviderConfig(ctx: TenantContext, id: string) {
+  return withTenant(ctx, async (tx) => {
+    const rows = await tx
+      .delete(providerConfigs)
+      .where(and(eq(providerConfigs.id, id), eq(providerConfigs.orgId, ctx.orgId)))
+      .returning({ id: providerConfigs.id });
+    return rows.length > 0;
+  });
+}
+
+/**
+ * Writes the cap onto the current period so the budget guard can read it
+ * without a second lookup.
+ */
+export async function setUsageBudgetCap(ctx: TenantContext, cap: number) {
+  return withTenant(ctx, async (tx) => {
+    await tx.execute(sql`
+      insert into usage_meters (org_id, period_start, period_end, budget_cap)
+      values (
+        ${ctx.orgId},
+        date_trunc('month', now()),
+        date_trunc('month', now()) + interval '1 month',
+        ${cap}
+      )
+      on conflict (org_id, period_start) do update set budget_cap = excluded.budget_cap
+    `);
     return true;
   });
 }
