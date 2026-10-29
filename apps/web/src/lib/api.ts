@@ -437,6 +437,56 @@ export async function fetchMeetingsInChannel(
   );
 }
 
+export interface WorkspaceMemberRow {
+  id: string;
+  name: string;
+  email: string;
+  role: "owner" | "admin" | "member";
+  status: "active" | "invited" | "deactivated";
+  lastSeenAt: string | null;
+}
+
+export async function fetchMembers(): Promise<ApiResult<{ members: WorkspaceMemberRow[] }>> {
+  return apiFetch<{ members: WorkspaceMemberRow[] }>("/api/v1/org/members");
+}
+
+export async function updateMember(
+  id: string,
+  patch: {
+    role?: "owner" | "admin" | "member";
+    status?: "active" | "invited" | "deactivated";
+  },
+): Promise<ApiResult<{ member: WorkspaceMemberRow | null }>> {
+  return apiFetch<{ member: WorkspaceMemberRow | null }>(`/api/v1/org/members/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function inviteMember(input: {
+  email: string;
+  role: "owner" | "admin" | "member";
+}): Promise<ApiResult<{ ok: boolean; devLink?: string }>> {
+  return apiFetch<{ ok: boolean; devLink?: string }>("/api/v1/org/invites", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export interface AuditEventRow {
+  id: string;
+  action: string;
+  targetType: string;
+  targetId: string;
+  createdAt: string;
+  ip: string | null;
+  actorName: string | null;
+}
+
+export async function fetchAuditEvents(): Promise<ApiResult<{ events: AuditEventRow[] }>> {
+  return apiFetch<{ events: AuditEventRow[] }>("/api/v1/org/audit");
+}
+
 export async function searchMeetings(query: string): Promise<SearchResult[]> {
   const payload = await request<{ results: SearchResult[] }>(
     `/api/v1/search?q=${encodeURIComponent(query)}`,

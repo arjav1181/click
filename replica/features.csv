@@ -7,13 +7,13 @@ Microsoft OAuth sign-in,onboarding,should,yes,no,P1; not implemented - configure
 OIDC single sign-on,onboarding,should,yes,yes,P5; done in replica-backend: discovery + PKCE + jose id_token verification
 SAML single sign-on,onboarding,should,yes,no,P5; not implemented - OIDC only, listed in replica/backend.md known gaps
 SCIM user provisioning,onboarding,could,yes,no,P5; Granola and Otter
-Email invite links for teammates,workspace,must,yes,yes,P0; done in replica-backend: invitation tokens, public preview, accept endpoint, CLI invite
+Email invite links for teammates,workspace,must,yes,yes,P0; done in replica-backend: invitation tokens, public preview, accept endpoint, CLI invite. S53 admin members screen sends invitations over POST /api/v1/org/invites
 Workspace creation and domain auto-join,workspace,should,yes,no,P2
 Guided onboarding (calendar capture providers retention),onboarding,must,yes,partial,P0; UI built in replica-build M0/M1; data layer is seed/fake until replica-backend
 Profile locale timezone and avatar,onboarding,must,yes,partial,P0; done in replica-backend: GET/PATCH /api/v1/settings/profile
-Roles owner admin member,workspace,must,yes,yes,P0; done in replica-backend: memberships table, role checks on admin routes, RLS by org
+Roles owner admin member,workspace,must,yes,yes,P0; done in replica-backend: memberships table, role checks on admin routes, RLS by org. S53 admin members screen lets an owner or admin change a role inline
 Groups for sharing and template assignment,workspace,should,yes,no,P3
-Deactivate and reactivate members,workspace,must,yes,partial,P2; PATCH /api/v1/org/members/[id] updates member status
+Deactivate and reactivate members,workspace,must,yes,yes,P0; S53 admin members screen over GET /api/v1/org/members and PATCH /api/v1/org/members/[id]: deactivate and reactivate with last-owner guard
 Transfer workspace ownership,workspace,must,yes,no,P2
 Workspace-wide recording policy,workspace,must,yes,no,P2
 Private-by-default meeting visibility,workspace,must,yes,yes,P1; meetings default to private and RLS enforces tenant scoping
