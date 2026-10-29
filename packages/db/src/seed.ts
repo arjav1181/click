@@ -25,6 +25,7 @@ const IDS = {
   space: "68686868-6868-4686-8686-686868686868",
   space2: "68686868-6868-4686-8686-686868686869",
   channel: "77777777-7777-4777-8777-777777777777",
+  channel2: "77777777-7777-4777-8777-777777777778",
   meeting1: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
   meeting2: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
   meeting3: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
@@ -126,9 +127,24 @@ await q(
 await q(`update spaces set name = 'Product team' where id = $1`, [IDS.space]);
 
 await q(
-  `insert into channels (id, org_id, name, visibility)
-   values ($1,$2,'launch','public') on conflict do nothing`,
-  [IDS.channel, IDS.org],
+  `insert into channels (id, org_id, name, visibility, description)
+   values
+     ($1,$2,'launch','public','Launch planning and release reviews'),
+     ($3,$2,'customer-success','private','Renewals and onboarding calls')
+   on conflict do nothing`,
+  [IDS.channel, IDS.org, IDS.channel2],
+);
+
+await q(
+  `update channels set description = 'Launch planning and release reviews' where id = $1 and description is null`,
+  [IDS.channel],
+);
+
+await q(
+  `insert into channel_members (channel_id, user_id)
+   values ($1,$2), ($1,$3), ($4,$5)
+   on conflict do nothing`,
+  [IDS.channel, IDS.ava, IDS.sam, IDS.channel2, IDS.maya],
 );
 
 await q(
@@ -202,8 +218,9 @@ await q(
   [IDS.meeting1, IDS.folder, IDS.meeting4],
 );
 await q(
-  `insert into meeting_channels (meeting_id, channel_id) values ($1,$2), ($3,$2) on conflict do nothing`,
-  [IDS.meeting1, IDS.channel, IDS.meeting4],
+  `insert into meeting_channels (meeting_id, channel_id)
+   values ($1,$2), ($3,$2), ($4,$5) on conflict do nothing`,
+  [IDS.meeting1, IDS.channel, IDS.meeting4, IDS.meeting2, IDS.channel2],
 );
 
 for (const [id, meetingId, provider] of [

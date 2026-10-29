@@ -80,7 +80,7 @@ async function main() {
   await sleep(300);
 
   await page.goto(`${BASE_URL}${args.route}`, { waitUntil: "networkidle2", timeout: 60000 });
-  await sleep(900);
+  await sleep(1500);
 
   await page.screenshot({ path: outPath, fullPage: true });
   await browser.close();

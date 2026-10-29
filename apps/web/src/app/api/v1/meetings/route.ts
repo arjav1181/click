@@ -13,6 +13,7 @@ export const GET = handler(async (request) => {
       q: url.searchParams.get("q") ?? undefined,
       status: url.searchParams.get("status") ?? undefined,
       folderId: url.searchParams.get("folderId") ?? undefined,
+      channelId: url.searchParams.get("channelId") ?? undefined,
       limit: Number(url.searchParams.get("limit") ?? 50) || 50,
     },
   );
