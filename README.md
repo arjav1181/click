@@ -84,7 +84,7 @@ pnpm dev                     # web on :3000, jobs run inline without Redis
 Every knob — ASR and LLM providers, storage driver, SMTP, OIDC, budget cap —
 is documented in [`.env.example`](.env.example). The default providers are
 deterministic mocks, so a fresh install works with no API keys and no paid
-account.
+account. Full deployment guide: [`docs/self-hosting.md`](docs/self-hosting.md).
 
 ## Layout
 
@@ -102,7 +102,8 @@ account.
 | `packages/db` | Drizzle schema, migrations, RLS-aware client, repositories |
 | `packages/backend` | shared server code: env, crypto, mail, storage, providers, jobs |
 | `infra/compose` | Docker Compose stack |
-| `docs/` | user and contributor documentation |
+| `docs/self-hosting.md` | deployment guide: Compose, manual install, configuration, backups |
+| `docs/development.md` | code layout and the rules that keep it consistent |
 
 ## Status
 

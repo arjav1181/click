@@ -79,7 +79,8 @@ M0 foundation → M1 vertical slice (upload/transcribe/summary/search) → M2 bo
 
 ## Git/GitHub
 - Repo: https://github.com/arjav1181/click, public, main, AGPL-3.0.
-- Commits: 493289a skeleton+recon, f5796f2 entity count, 9ea81f1 arch/schema/README, c4751a0 schema fixes.
+- Commits: 493289a skeleton+recon, f5796f2 entity count, 9ea81f1 arch/schema/README, c4751a0 schema fixes, 91899ca M0/M1 build, e779ac3 backend phase, 922eaa6 CI standalone health check.
+- CI: `.github/workflows/ci.yml` — pgvector + Redis, typecheck, build, migrate, seed, RLS test, standalone health check. Both backend commits green.
 - gh authenticated as arjav1181 with repo+workflow scopes; `gh auth setup-git` done.
 - Credential helper configured; push works.
 
@@ -97,6 +98,7 @@ M0 foundation → M1 vertical slice (upload/transcribe/summary/search) → M2 bo
 
 ## Notes
 - Screenshots of originals in replica/screens/ are reference only, never shipped.
-- Local Postgres 17 at /nix/store/269nimkimaaivb4z46bjc1rnjv9jpc0l-postgresql-17.6/bin; run on port 55432 (data dir /tmp/opencode/pgdata); Docker daemon not running; pgvector extension absent locally (patched migration copy under /tmp/opencode/migrations-novector).
+- Local Postgres 17 at /nix/store/269nimkimaaivb4z46bjc1rnjv9jpc0l-postgresql-17.6/bin; run on port 55432 (data dir /tmp/opencode/pgdata); Docker daemon not running; pgvector extension absent locally (patched migration copy under /tmp/opencode/migrations-novector, applied via MIGRATIONS_DIR).
 - User prefers decisive action; avoid long pauses.
 - Do not touch /home/runner/workspace/app, components, lib, prisma, replica at workspace root (Stonic).
+- Docs live in `docs/self-hosting.md` (deployment) and `docs/development.md` (code layout and rules); `replica/backend.md` is the backend reference.
