@@ -239,6 +239,71 @@ export async function listActionItems(): Promise<ActionItem[]> {
   }));
 }
 
+/**
+ * Strict variant of `request` used by the workspace screens: it reports the
+ * failure instead of silently falling back to demo data, so a screen can show
+ * an error state and a "no permission" state.
+ */
+export interface ApiResult<T> {
+  data: T | null;
+  error: string | null;
+  status: number;
+}
+
+async function apiFetch<T>(url: string, init?: RequestInit): Promise<ApiResult<T>> {
+  try {
+    const response = await fetch(url, {
+      ...init,
+      headers: {
+        ...(init?.body && !(init.body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
+        ...(init?.headers ?? {}),
+      },
+    });
+    const payload = (await response.json().catch(() => ({}))) as T & {
+      error?: { message?: string };
+    };
+    if (!response.ok) {
+      return {
+        data: null,
+        error: payload.error?.message ?? "That did not work. Try again.",
+        status: response.status,
+      };
+    }
+    return { data: payload, error: null, status: response.status };
+  } catch {
+    return {
+      data: null,
+      error: "We could not reach the server. Check your connection and try again.",
+      status: 0,
+    };
+  }
+}
+
+export interface ActionItemRow {
+  id: string;
+  meetingId: string;
+  meetingTitle: string;
+  text: string;
+  assigneeName: string | null;
+  dueAt: string | null;
+  status: string;
+  sourceSegmentId: string | null;
+}
+
+export async function fetchActionItems(): Promise<ApiResult<{ items: ActionItemRow[] }>> {
+  return apiFetch<{ items: ActionItemRow[] }>("/api/v1/action-items");
+}
+
+export async function patchActionItem(
+  id: string,
+  patch: { status?: "open" | "done" | "cancelled"; assigneeName?: string | null; dueAt?: string | null },
+): Promise<ApiResult<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>(`/api/v1/action-items/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
 export async function searchMeetings(query: string): Promise<SearchResult[]> {
   const payload = await request<{ results: SearchResult[] }>(
     `/api/v1/search?q=${encodeURIComponent(query)}`,
