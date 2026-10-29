@@ -7,6 +7,7 @@ import "./load-env";
  *   pnpm --filter @click/db cli reset-password <email> <password>
  *   pnpm --filter @click/db cli verify-email <email>
  *   pnpm --filter @click/db cli invite <org-slug> <email> [role]
+ *   pnpm --filter @click/db cli session-token <email>
  */
 import { Client } from "pg";
 import { hashPassword, passwordProblem, randomToken, sha256 } from "./password";
@@ -117,6 +118,22 @@ async function invite(orgSlug: string, email: string, role = "member") {
   console.log(token);
 }
 
+async function sessionToken(email: string) {
+  const user = await client.query<{ id: string }>(
+    "select id from users where email = $1",
+    [email.toLowerCase()],
+  );
+  if (user.rowCount === 0) die(`no user with email ${email}`);
+  const token = randomToken(32);
+  await client.query(
+    `insert into sessions (user_id, token_hash, expires_at)
+     values ($1,$2, now() + interval '30 days')`,
+    [user.rows[0].id, sha256(token)],
+  );
+  console.log(`session token for ${email} (valid 30 days):`);
+  console.log(token);
+}
+
 switch (command) {
   case "create-admin":
     if (args.length < 2) die("usage: cli create-admin <email> <password> [name]");
@@ -134,6 +151,10 @@ switch (command) {
     if (args.length < 2) die("usage: cli invite <org-slug> <email> [role]");
     await invite(args[0], args[1], args[2]);
     break;
+  case "session-token":
+    if (args.length < 1) die("usage: cli session-token <email>");
+    await sessionToken(args[0]);
+    break;
   default:
     die(
       [
@@ -142,6 +163,7 @@ switch (command) {
         "  reset-password <email> <password>",
         "  verify-email <email>",
         "  invite <org-slug> <email> [role]",
+        "  session-token <email>",
       ].join("\n"),
     );
 }
