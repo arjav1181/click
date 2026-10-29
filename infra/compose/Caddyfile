@@ -1,0 +1,6 @@
+# Click reverse proxy. Terminates plain HTTP; put a TLS terminator in front
+# (Caddy with a domain, your load balancer, or Cloudflare) for production.
+:80 {
+	encode zstd gzip
+	reverse_proxy web:3000
+}

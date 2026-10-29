@@ -4,8 +4,10 @@
 > transcribes with speaker labels, writes structured notes and summaries, and
 > lets you ask questions across every meeting you have ever had.
 
-Status: **build in progress** — app shell + vertical slice (M0/M1) landed; see
-[`replica/build-log.md`](replica/build-log.md). Architecture:
+Status: **backend landed** — app shell + vertical slice (M0/M1) plus real auth,
+Postgres + RLS, storage, providers, jobs and email (`/replica-backend`). See
+[`replica/build-log.md`](replica/build-log.md) and
+[`replica/backend.md`](replica/backend.md). Architecture:
 [`replica/architecture.md`](replica/architecture.md).
 
 Click is a clean-room rebuild of the *functionality and UX patterns* of three
@@ -55,11 +57,34 @@ Scope, screens (S01–S74), flows (F01–F17) and the 216-row feature matrix liv
 
 ## Stack
 
-Next.js 16 + TypeScript · PostgreSQL 16 + pgvector · Drizzle ORM · Auth.js v5
-(+ BoxyHQ Jackson for SAML) · BullMQ on Redis · S3/MinIO · Nodemailer/SMTP ·
-Docker Compose. Detailed rationale and the 63-table schema are in
+Next.js 16 + TypeScript · PostgreSQL 16 + pgvector · Drizzle ORM · custom
+session auth (scrypt passwords, hashed session tokens, httpOnly cookie) · OIDC
+via `jose` · BullMQ on Redis · S3/MinIO · Nodemailer/SMTP · Docker Compose.
+Detailed rationale and the 64-table schema are in
 [`replica/architecture.md`](replica/architecture.md) and
 [`replica/schema.sql`](replica/schema.sql).
+
+## Running it
+
+```bash
+cp .env.example .env          # set DATABASE_URL, APP_URL, APP_SECRET
+docker compose -f infra/compose/docker-compose.yml up -d
+```
+
+That brings up Postgres (with pgvector), Redis, MinIO, the web app, the
+worker, a local faster-whisper ASR service and Caddy. Without Docker:
+
+```bash
+pnpm install
+pnpm db:migrate
+pnpm db:seed                 # demo login: ava@click.local / click-demo-2026
+pnpm dev                     # web on :3000, jobs run inline without Redis
+```
+
+Every knob — ASR and LLM providers, storage driver, SMTP, OIDC, budget cap —
+is documented in [`.env.example`](.env.example). The default providers are
+deterministic mocks, so a fresh install works with no API keys and no paid
+account.
 
 ## Layout
 
@@ -70,6 +95,13 @@ Docker Compose. Detailed rationale and the 63-table schema are in
 | `replica/screens/` | reference screenshots of the originals (never shipped) |
 | `replica/architecture.md` | stack, schema, API and build order |
 | `replica/schema.sql` | canonical PostgreSQL DDL used by the first migration |
+| `replica/backend.md` | backend reference: data model, routes, jobs, providers, security, gaps |
+| `apps/web` | Next.js app: UI, `/api/v1` routes, bot callbacks |
+| `apps/worker` | BullMQ worker (transcribe, summarize, embed, email) |
+| `apps/asr` | local faster-whisper ASR service |
+| `packages/db` | Drizzle schema, migrations, RLS-aware client, repositories |
+| `packages/backend` | shared server code: env, crypto, mail, storage, providers, jobs |
+| `infra/compose` | Docker Compose stack |
 | `docs/` | user and contributor documentation |
 
 ## Status
@@ -79,8 +111,9 @@ Docker Compose. Detailed rationale and the 63-table schema are in
 | Recon | done |
 | Architecture | done |
 | Design system | done (`/replica-design`) |
-| Build | pending `/replica-build` |
-| Backend & auth | pending `/replica-backend` |
+| Build | app shell + API-backed core flow done (`/replica-build` M0/M1) |
+| Backend & auth | done (`/replica-backend`) — auth, DB + RLS, storage, providers, jobs, email |
+| Bot capture (M2) | next — Zoom RTMS / Google Meet clients |
 | QA | pending `/replica-test` |
 | Diff | pending `/replica-diff` |
 

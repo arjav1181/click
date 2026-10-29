@@ -22,7 +22,7 @@ create type meeting_status     as enum ('scheduled','joining','live','processing
 create type meeting_privacy    as enum ('private','workspace','link');
 create type bot_provider       as enum ('zoom','teams','meet','webex','jitsi');
 create type bot_state          as enum ('queued','joining','lobby','active','completed','failed','cancelled');
-create type transcript_status  as enum ('pending','streaming','ready','failed');
+create type transcript_status  as enum ('pending','processing','streaming','ready','failed');
 create type note_status        as enum ('draft','generating','ready','failed');
 create type task_status        as enum ('open','done','cancelled');
 create type share_access       as enum ('link','domain','password');
@@ -54,6 +54,7 @@ create table users (
   email         citext not null unique,
   name          text not null,
   password_hash text,
+  email_verified_at timestamptz,
   avatar_url    text,
   locale        text not null default 'en',
   timezone      text not null default 'UTC',
@@ -84,6 +85,19 @@ create table sessions (
   created_at timestamptz not null default now()
 );
 create index on sessions (user_id, expires_at desc);
+
+-- Single-use tokens for magic links, password reset and email verification.
+-- Stored hashed; the plaintext only ever exists in the email.
+create table auth_tokens (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references users(id) on delete cascade,
+  kind        text not null check (kind in ('magic_link','password_reset','email_verify','invite')),
+  token_hash  text not null unique,
+  expires_at  timestamptz not null,
+  consumed_at timestamptz,
+  created_at  timestamptz not null default now()
+);
+create index on auth_tokens (user_id, kind, expires_at desc);
 
 create table memberships (
   id         uuid primary key default gen_random_uuid(),
@@ -513,6 +527,7 @@ create table action_items (
   due_at            timestamptz,
   source_segment_id uuid references transcript_segments(id) on delete set null,
   pushed_refs       jsonb not null default '[]',
+  completed_at      timestamptz,
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now()
 );
@@ -1114,6 +1129,11 @@ create policy sessions_self on sessions
 
 alter table auth_identities enable row level security;
 create policy auth_identities_self on auth_identities
+  using (user_id = nullif(current_setting('app.user_id', true), '')::uuid)
+  with check (user_id = nullif(current_setting('app.user_id', true), '')::uuid);
+
+alter table auth_tokens enable row level security;
+create policy auth_tokens_self on auth_tokens
   using (user_id = nullif(current_setting('app.user_id', true), '')::uuid)
   with check (user_id = nullif(current_setting('app.user_id', true), '')::uuid);
 

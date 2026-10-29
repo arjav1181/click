@@ -4,7 +4,9 @@ import path from "node:path";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  transpilePackages: ["@click/ui", "@click/core"],
+  output: "standalone",
+  outputFileTracingRoot: path.resolve(__dirname, "../.."),
+  transpilePackages: ["@click/ui", "@click/core", "@click/db", "@click/backend"],
   turbopack: {
     root: path.resolve(__dirname, "../.."),
   },

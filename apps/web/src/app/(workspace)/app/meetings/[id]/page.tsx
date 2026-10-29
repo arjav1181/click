@@ -14,7 +14,7 @@ import {
   Input,
   CitationChip,
 } from "@click/ui";
-import { data } from "@click/core";
+import { generateNote, getMeeting, getNote, listActionItems, listTranscriptSegments, saveNote } from "@/lib/api";
 import { TranscriptSegment as TranscriptSegmentUI } from "@click/ui";
 import type { Meeting, TranscriptSegment, Note, ActionItem } from "@click/core";
 import Link from "next/link";
@@ -36,7 +36,7 @@ export default function MeetingWorkspacePage() {
   useEffect(() => {
     let active = true;
     setLoading(true);
-    Promise.all([data.getMeeting(id), data.listTranscriptSegments(id), data.getNote(id), data.listActionItems()])
+    Promise.all([getMeeting(id), listTranscriptSegments(id), getNote(id), listActionItems()])
       .then(([m, segs, n, acts]) => {
         if (!active) return;
         setMeeting(m);
@@ -53,16 +53,16 @@ export default function MeetingWorkspacePage() {
 
   const saveRaw = async () => {
     setSaving(true);
-    const updated = await data.saveNote(id, raw);
+    const updated = await saveNote(id, raw);
     setNote(updated);
     setSaving(false);
   };
 
   const generate = async () => {
     setGenerating(true);
-    const updated = await data.generateNote(id, note?.templateId ?? "t_default");
+    const updated = await generateNote(id, note?.templateId ?? undefined);
     setNote(updated);
-    setRaw(updated.rawMarkdown);
+    setRaw(updated?.rawMarkdown ?? raw);
     setGenerating(false);
   };
 
