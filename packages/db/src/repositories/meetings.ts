@@ -29,6 +29,8 @@ export interface MeetingListItem {
   audioAvailable: boolean;
 }
 
+const meetingId = sql.raw('"meetings"."id"');
+
 const baseSelect = {
   id: meetings.id,
   title: meetings.title,
@@ -41,11 +43,11 @@ const baseSelect = {
   privacy: meetings.privacy,
   ownerId: meetings.ownerId,
   ownerName: users.name,
-  participantCount: sql<number>`(select count(*)::int from ${meetingParticipants} p where p.meeting_id = ${meetings.id})`,
-  folderName: sql<string | null>`(select f.name from ${meetingFolders} mf join ${folders} f on f.id = mf.folder_id where mf.meeting_id = ${meetings.id} limit 1)`,
-  hasTranscript: sql<boolean>`exists (select 1 from ${transcripts} t where t.meeting_id = ${meetings.id})`,
-  hasSummary: sql<boolean>`exists (select 1 from notes n where n.meeting_id = ${meetings.id} and n.status = 'ready')`,
-  audioAvailable: sql<boolean>`exists (select 1 from recordings r where r.meeting_id = ${meetings.id} and r.deleted_at is null)`,
+  participantCount: sql<number>`(select count(*)::int from ${meetingParticipants} p where p.meeting_id = ${meetingId})`,
+  folderName: sql<string | null>`(select f.name from ${meetingFolders} mf join ${folders} f on f.id = mf.folder_id where mf.meeting_id = ${meetingId} limit 1)`,
+  hasTranscript: sql<boolean>`exists (select 1 from ${transcripts} t where t.meeting_id = ${meetingId})`,
+  hasSummary: sql<boolean>`exists (select 1 from notes n where n.meeting_id = ${meetingId} and n.status = 'ready')`,
+  audioAvailable: sql<boolean>`exists (select 1 from recordings r where r.meeting_id = ${meetingId} and r.deleted_at is null)`,
 };
 
 type Row = {

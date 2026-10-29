@@ -24,7 +24,11 @@ for (let index = 1; index < lines.length; index += 1) {
   const cells = line.split(",");
   if (!cells[0] || !cells[0].toLowerCase().includes(needle.toLowerCase())) continue;
   cells[4] = clone;
-  if (notes !== undefined) cells[5] = notes;
+  // Notes may contain commas, so everything from the sixth cell onwards is
+  // replaced as one block.
+  if (notes !== undefined) {
+    cells.splice(5, cells.length - 5, notes);
+  }
   lines[index] = cells.join(",");
   updated += 1;
 }
