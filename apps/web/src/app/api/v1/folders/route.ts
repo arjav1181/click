@@ -13,6 +13,7 @@ export const GET = handler(async () => {
 const schema = z.object({
   name: z.string().trim().min(1).max(120),
   parentId: z.string().uuid().nullable().optional(),
+  spaceId: z.string().uuid().nullable().optional(),
   icon: z.string().trim().max(40).nullable().optional(),
   description: z.string().trim().max(500).nullable().optional(),
 });

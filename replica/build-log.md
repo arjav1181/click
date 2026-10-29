@@ -41,3 +41,4 @@ Screens below moved from the bundled demo data to the real API. See
 - New | 2026-10-29 | done | Forgot-password, reset-password, verify-email and invite-accept pages wired to the API.
 - New | 2026-10-29 | done | Shell header shows the signed-in user and workspace and signs out.
 - S36 | 2026-10-29 | done | Tasks screen over GET /api/v1/action-items: status and text filters, grouping by meeting/due/owner, bulk complete, CSV export, overdue badges.
+- S27 | 2026-10-29 | partial | Folders and spaces over GET/POST /api/v1/folders and /api/v1/spaces: nested tree, create dialogs, folder page with meetings and move. Drag-and-drop filing and auto-add rules not built. Fixed a repo bug where correlated subqueries compared the wrong id column, so folder names, transcript flags and summaries were wrong.

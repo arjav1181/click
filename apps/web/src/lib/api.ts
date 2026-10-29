@@ -304,6 +304,76 @@ export async function patchActionItem(
   });
 }
 
+export interface FolderRow {
+  id: string;
+  name: string;
+  parentId: string | null;
+  spaceId: string | null;
+  icon: string | null;
+  description: string | null;
+  linkAccess: string;
+  ownerId: string;
+  meetingCount: number;
+}
+
+export interface SpaceRow {
+  id: string;
+  name: string;
+  icon: string | null;
+  description: string | null;
+  kind: "personal" | "team" | "custom";
+  folderCount: number;
+}
+
+export async function fetchFolders(): Promise<ApiResult<{ folders: FolderRow[] }>> {
+  return apiFetch<{ folders: FolderRow[] }>("/api/v1/folders");
+}
+
+export async function fetchSpaces(): Promise<ApiResult<{ spaces: SpaceRow[] }>> {
+  return apiFetch<{ spaces: SpaceRow[] }>("/api/v1/spaces");
+}
+
+export async function createFolder(input: {
+  name: string;
+  parentId?: string | null;
+  spaceId?: string | null;
+  description?: string | null;
+}): Promise<ApiResult<{ folder: { id: string; name: string } }>> {
+  return apiFetch<{ folder: { id: string; name: string } }>("/api/v1/folders", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function createSpace(input: {
+  name: string;
+  kind: "personal" | "team" | "custom";
+  description?: string | null;
+}): Promise<ApiResult<{ space: { id: string; name: string } }>> {
+  return apiFetch<{ space: { id: string; name: string } }>("/api/v1/spaces", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function fetchMeetingsInFolder(
+  folderId: string,
+): Promise<ApiResult<{ meetings: ApiMeeting[]; total: number }>> {
+  return apiFetch<{ meetings: ApiMeeting[]; total: number }>(
+    `/api/v1/meetings?folderId=${encodeURIComponent(folderId)}`,
+  );
+}
+
+export async function moveMeetingToFolder(
+  meetingId: string,
+  folderId: string | null,
+): Promise<ApiResult<{ meeting: ApiMeeting }>> {
+  return apiFetch<{ meeting: ApiMeeting }>(`/api/v1/meetings/${meetingId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ folderId }),
+  });
+}
+
 export async function searchMeetings(query: string): Promise<SearchResult[]> {
   const payload = await request<{ results: SearchResult[] }>(
     `/api/v1/search?q=${encodeURIComponent(query)}`,

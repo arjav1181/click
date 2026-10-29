@@ -1,6 +1,6 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 import { withTenant, type TenantContext } from "../client";
-import { actionItems, auditEvents, channels, folders, memberships, meetings, organizations, users, usageMeters } from "../schema";
+import { actionItems, auditEvents, channels, folders, memberships, meetings, organizations, spaces, users, usageMeters } from "../schema";
 
 export async function listActionItems(ctx: TenantContext, status?: string) {
   return withTenant(ctx, async (tx) => {
@@ -83,11 +83,52 @@ export async function listFolders(ctx: TenantContext) {
         id: folders.id,
         name: folders.name,
         parentId: folders.parentId,
-        meetingCount: sql<number>`(select count(*)::int from meeting_folders mf where mf.folder_id = ${folders.id})`,
+        spaceId: folders.spaceId,
+        icon: folders.icon,
+        description: folders.description,
+        linkAccess: folders.linkAccess,
+        ownerId: folders.ownerId,
+        meetingCount: sql<number>`(select count(*)::int from meeting_folders mf where mf.folder_id = ${sql.raw('"folders"."id"')})`,
       })
       .from(folders)
       .orderBy(asc(folders.name));
     return rows;
+  });
+}
+
+export async function listSpaces(ctx: TenantContext) {
+  return withTenant(ctx, async (tx) => {
+    const rows = await tx
+      .select({
+        id: spaces.id,
+        name: spaces.name,
+        icon: spaces.icon,
+        description: spaces.description,
+        kind: spaces.kind,
+        folderCount: sql<number>`(select count(*)::int from folders f where f.space_id = ${sql.raw('"spaces"."id"')})`,
+      })
+      .from(spaces)
+      .orderBy(asc(spaces.name));
+    return rows;
+  });
+}
+
+export async function createSpace(
+  ctx: TenantContext,
+  input: { name: string; kind: "personal" | "team" | "custom"; description?: string | null },
+) {
+  return withTenant(ctx, async (tx) => {
+    const rows = await tx
+      .insert(spaces)
+      .values({
+        orgId: ctx.orgId,
+        name: input.name.slice(0, 120),
+        kind: input.kind,
+        icon: "space",
+        description: input.description ?? null,
+      })
+      .returning({ id: spaces.id, name: spaces.name, kind: spaces.kind });
+    return rows[0];
   });
 }
 
@@ -99,7 +140,7 @@ export async function listChannels(ctx: TenantContext) {
         name: channels.name,
         visibility: channels.visibility,
         archivedAt: channels.archivedAt,
-        meetingCount: sql<number>`(select count(*)::int from meeting_channels mc where mc.channel_id = ${channels.id})`,
+        meetingCount: sql<number>`(select count(*)::int from meeting_channels mc where mc.channel_id = ${sql.raw('"channels"."id"')})`,
       })
       .from(channels)
       .orderBy(asc(channels.name));
@@ -242,7 +283,13 @@ export async function deleteActionItem(ctx: TenantContext, id: string) {
 
 export async function createFolder(
   ctx: TenantContext,
-  input: { name: string; parentId?: string | null; icon?: string | null; description?: string | null },
+  input: {
+    name: string;
+    parentId?: string | null;
+    spaceId?: string | null;
+    icon?: string | null;
+    description?: string | null;
+  },
 ) {
   return withTenant(ctx, async (tx) => {
     const rows = await tx
@@ -251,11 +298,12 @@ export async function createFolder(
         orgId: ctx.orgId,
         name: input.name.slice(0, 120),
         parentId: input.parentId ?? null,
+        spaceId: input.spaceId ?? null,
         icon: input.icon ?? "folder",
         description: input.description ?? null,
         ownerId: ctx.userId,
       })
-      .returning({ id: folders.id, name: folders.name, parentId: folders.parentId });
+      .returning({ id: folders.id, name: folders.name, parentId: folders.parentId, spaceId: folders.spaceId });
     return rows[0];
   });
 }

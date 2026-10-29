@@ -20,6 +20,10 @@ const IDS = {
   maya: "44444444-4444-4444-8444-444444444444",
   jordan: "55555555-5555-4555-8555-555555555555",
   folder: "66666666-6666-4666-8666-666666666666",
+  folder2: "66666666-6666-4666-8666-666666666667",
+  folder3: "66666666-6666-4666-8666-666666666668",
+  space: "68686868-6868-4686-8686-686868686868",
+  space2: "68686868-6868-4686-8686-686868686869",
   channel: "77777777-7777-4777-8777-777777777777",
   meeting1: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
   meeting2: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
@@ -87,10 +91,39 @@ await q(
 );
 
 await q(
-  `insert into folders (id, org_id, name, icon, owner_id)
-   values ($1,$2,'Product','folder',$3) on conflict do nothing`,
-  [IDS.folder, IDS.org, IDS.ava],
+  `insert into spaces (id, org_id, name, icon, description, kind)
+   values
+     ($1,$3,'Product team','space','Roadmap, discovery and release planning','team'),
+     ($2,$3,'Customer success','space','Renewals, onboarding and support calls','custom')
+   on conflict do nothing`,
+  [IDS.space, IDS.space2, IDS.org],
 );
+
+await q(
+  `insert into folders (id, org_id, name, icon, owner_id, space_id, parent_id, description)
+   values
+     ($1,$3,'Product','folder',$4,$5,null,'Roadmap work and release planning'),
+     ($2,$3,'Roadmap reviews','folder',$4,$5,$1,'Weekly roadmap sync and demo notes'),
+     ($6,$3,'Onboarding calls','folder',$4,$7,null,'Customer onboarding sessions')
+   on conflict do nothing`,
+  [
+    IDS.folder,
+    IDS.folder2,
+    IDS.org,
+    IDS.ava,
+    IDS.space,
+    IDS.folder3,
+    IDS.space2,
+  ],
+);
+
+await q(
+  `update folders set space_id = $2, description = 'Roadmap work and release planning'
+   where id = $1 and space_id is null`,
+  [IDS.folder, IDS.space],
+);
+
+await q(`update spaces set name = 'Product team' where id = $1`, [IDS.space]);
 
 await q(
   `insert into channels (id, org_id, name, visibility)

@@ -113,7 +113,7 @@ Skill output feed,automation,should,yes,no,P3
 Route skill outputs to integrations,automation,should,yes,no,P4
 Test-run a skill before enabling,automation,could,no,no,P4
 Auto-extract action items,actions,must,yes,yes,P0; done in replica-backend: summarize job writes action_items with a source segment
-Assign action item owners and due dates,actions,must,yes,partial,P1; action item rows carry assignee and due date; editing owners not yet in the UI, assignment UI not built
+Assign action item owners and due dates,actions,must,yes,partial,P1; action item rows carry assignee and due date; editing owners not yet in the UI
 Task list across all meetings,actions,must,yes,yes,P0; S36 tasks screen: status filters, grouping, bulk update and CSV export against GET /api/v1/action-items
 Push tasks to Jira Linear Asana ClickUp or Trello,actions,should,yes,no,P4
 Two-way task status sync,actions,could,no,no,P5
@@ -146,8 +146,8 @@ Soundbites and clips,sharing,must,yes,no,P3
 Playlists of clips,sharing,should,yes,no,P3
 Shared with me view,sharing,must,yes,no,P2
 Request access flow,sharing,should,yes,no,P2
-Folders,organization,must,yes,yes,P0; done in replica-backend: folders table plus GET and POST /api/v1/folders
-Spaces for personal team and custom grouping,organization,should,yes,no,P2
+Folders,organization,must,yes,yes,P0; S27: folder tree, create folder and space, folder page with meetings and move
+Spaces for personal team and custom grouping,organization,should,yes,yes,P0; spaces table with personal, team and custom kinds plus GET and POST /api/v1/spaces
 Channels with channel-scoped chat,organization,should,yes,partial,P0; channels table plus GET and POST /api/v1/channels, channel chat not built
 Auto-add recurring meetings to a folder,organization,should,yes,no,P2
 People directory built from meetings,organization,must,yes,no,P2
@@ -155,7 +155,7 @@ Company directory,organization,should,yes,no,P3
 Tags,organization,should,yes,no,P2
 Trash and restore,organization,must,yes,yes,P0; done in replica-backend: soft delete plus POST /api/v1/meetings/[id]/restore
 Bulk move and delete,organization,must,yes,no,P2
-A meeting can live in multiple folders,organization,should,yes,no,P2
+A meeting can live in multiple folders,organization,should,yes,partial,P2; S27 moves a meeting between folders; multi-folder membership not built
 Speaker talk-time analytics,analytics,should,yes,no,P3
 Monologues filler words and words per minute,analytics,should,yes,no,P3
 Questions asked per speaker,analytics,should,yes,no,P3
