@@ -77,6 +77,12 @@ jobs:
 
       - name: Health check
         run: |
-          pnpm --filter web start &
+          # The app builds with output: "standalone", so start the real
+          # standalone server rather than `next start`.
+          mkdir -p apps/web/.next/standalone/apps/web/.next
+          cp -r apps/web/.next/static apps/web/.next/standalone/apps/web/.next/static
+          cd apps/web/.next/standalone
+          PORT=3000 HOSTNAME=127.0.0.1 node apps/web/server.js &
+          cd -
           npx --yes wait-on http://127.0.0.1:3000/api/healthz -t 60000
           curl -fsS http://127.0.0.1:3000/api/healthz
