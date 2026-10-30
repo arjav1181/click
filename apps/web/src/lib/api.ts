@@ -1042,6 +1042,60 @@ export async function deleteVocabularyTerm(id: string): Promise<ApiResult<{ ok: 
   return apiFetch<{ ok: boolean }>(`/api/v1/vocabulary/${id}`, { method: "DELETE" });
 }
 
+export interface LegalHoldRow {
+  id: string;
+  name: string;
+  description: string | null;
+  custodianIds: string[];
+  custodianNames: string[];
+  scope: Record<string, unknown>;
+  releasedAt: string | null;
+  createdAt: string;
+}
+
+export async function fetchLegalHolds(): Promise<ApiResult<{ holds: LegalHoldRow[] }>> {
+  return apiFetch<{ holds: LegalHoldRow[] }>("/api/v1/legal-hold");
+}
+
+export async function createLegalHold(input: {
+  name: string;
+  description?: string;
+  custodianIds?: string[];
+}): Promise<ApiResult<{ id: string }>> {
+  return apiFetch<{ id: string }>("/api/v1/legal-hold", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function releaseLegalHold(id: string): Promise<ApiResult<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>(`/api/v1/legal-hold/${id}/release`, { method: "POST" });
+}
+
+export async function deleteLegalHold(id: string): Promise<ApiResult<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>(`/api/v1/legal-hold/${id}`, { method: "DELETE" });
+}
+
+export interface RecordingPolicy {
+  autoJoinDefault: boolean;
+  botName: string;
+  consentNotice: string;
+  privateByDefault: boolean;
+}
+
+export async function fetchRecordingPolicy(): Promise<ApiResult<{ policy: RecordingPolicy }>> {
+  return apiFetch<{ policy: RecordingPolicy }>("/api/v1/admin/recording");
+}
+
+export async function updateRecordingPolicy(
+  patch: Partial<RecordingPolicy>,
+): Promise<ApiResult<{ policy: RecordingPolicy }>> {
+  return apiFetch<{ policy: RecordingPolicy }>("/api/v1/admin/recording", {
+    method: "PUT",
+    body: JSON.stringify(patch),
+  });
+}
+
 export interface RetentionPolicy {
   transcriptDays: number | null;
   audioDays: number | null;
