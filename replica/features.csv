@@ -142,7 +142,7 @@ Collaborator versus viewer roles,sharing,must,yes,no,P2
 Threaded comments,sharing,must,yes,no,P2
 Highlights,sharing,must,yes,no,P2
 Bookmarks,sharing,must,yes,no,P2
-Soundbites and clips,sharing,must,yes,no,P3
+Soundbites and clips,sharing,must,yes,yes,S19: /app/soundbites lists and deletes clips over GET/POST/DELETE /api/v1/soundbites
 Playlists of clips,sharing,should,yes,no,P3
 Shared with me view,sharing,must,yes,no,P2
 Request access flow,sharing,should,yes,no,P2

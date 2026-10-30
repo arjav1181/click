@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { chatRepo } from "@click/db";
-import { chat, resolveProviderOverride } from "@click/backend";
+import { chatRepo, meetingsRepo } from "@click/db";
+import { chat, chatWithVision, resolveProviderOverride, extractFrame } from "@click/backend";
 import { assertSameOrigin, handler, json, parseJson, clientIp, ApiError } from "@/server/http";
 import { requireOrgSession } from "@/server/auth";
 import { recordAudit } from "@/server/audit";
@@ -31,11 +31,33 @@ export const POST = handler(async (request, context: { params: Promise<{ id: str
 
   const override = await resolveProviderOverride(session.orgId, "llm");
 
-  const result = await chat({
-    question: body.content,
-    snippets,
-    override,
-  });
+  // Resolve a recording we can pull frames from, if any.
+  const meetingIds = Array.from(new Set(snippets.map((snippet) => snippet.meetingId)));
+  const storageKeys: string[] = [];
+  for (const meetingId of meetingIds) {
+    const recording = await meetingsRepo.getMeetingRecording({ orgId: session.orgId, userId: session.id }, meetingId);
+    if (recording) storageKeys.push(recording.storageKey);
+  }
+
+  const result =
+    storageKeys.length > 0
+      ? await chatWithVision({
+          question: body.content,
+          snippets,
+          override,
+          extractFrame: async (timestampMs) => {
+            for (const key of storageKeys) {
+              const frame = await extractFrame(key, timestampMs);
+              if (frame) return frame;
+            }
+            return null;
+          },
+        })
+      : await chat({
+          question: body.content,
+          snippets,
+          override,
+        });
 
   const assistant = await chatRepo.appendMessage(
     { orgId: session.orgId, userId: session.id },
@@ -65,5 +87,6 @@ export const POST = handler(async (request, context: { params: Promise<{ id: str
     ip: clientIp(request),
   });
 
-  return json({ message: assistant, citations: result.citations });
+  const frames = "frames" in result ? (result as { frames: Array<{ timestampMs: number; base64: string }> }).frames : [];
+  return json({ message: assistant, citations: result.citations, frames });
 });

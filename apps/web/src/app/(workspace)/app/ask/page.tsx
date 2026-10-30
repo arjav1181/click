@@ -139,10 +139,11 @@ export default function AskPage() {
       setMessages((prev) => prev.filter((message) => message.id !== optimistic.id));
       return;
     }
+    const assistantMessage = { ...result.data!.message, frames: result.data!.frames ?? [] };
     setMessages((prev) => [
       ...prev.filter((message) => message.id !== optimistic.id),
       { ...optimistic },
-      result.data!.message,
+      assistantMessage,
     ]);
     // Refresh the thread list so the new title shows up.
     void loadThreads();
@@ -321,6 +322,18 @@ function MessageBubble({ message }: { message: ChatMessageRow }) {
         }`}
       >
         <p className="whitespace-pre-wrap leading-6">{message.content}</p>
+        {!isUser && message.frames && message.frames.length > 0 ? (
+          <div className="mt-2 grid gap-2">
+            {message.frames.map((frame, index) => (
+              <img
+                key={index}
+                src={`data:image/jpeg;base64,${frame.base64}`}
+                alt={`Frame at ${Math.floor(frame.timestampMs / 1000)}s`}
+                className="max-w-full rounded-md border border-border"
+              />
+            ))}
+          </div>
+        ) : null}
         {!isUser && message.citations.length > 0 ? (
           <div className="mt-2 flex flex-wrap gap-1">
             {message.citations.map((citation, index) => (

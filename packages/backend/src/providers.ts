@@ -619,6 +619,177 @@ function heuristicChat(question: string, snippets: ChatSnippet[], model = "mock-
   };
 }
 
+export interface VisionFrame {
+  timestampMs: number;
+  base64: string;
+}
+
+export interface ChatWithVisionResult extends ChatResult {
+  frames: VisionFrame[];
+}
+
+/**
+ * Vision-aware chat. The model can call a `get_frame` tool to request a
+ * frame from the meeting recording at a given timestamp; we extract it and
+ * feed it back as an image so the model can reason about visuals alongside
+ * the transcript.
+ */
+export async function chatWithVision(input: {
+  question: string;
+  snippets: ChatSnippet[];
+  extractFrame: (timestampMs: number) => Promise<string | null>;
+  override?: ProviderOverride | null;
+}): Promise<ChatWithVisionResult> {
+  const config = aiConfig().llm;
+  const override = input.override?.enabled === false ? null : input.override ?? null;
+  const provider = override?.provider ?? config.provider;
+  const baseUrl = override?.baseUrl ?? config.baseUrl;
+  const apiKey = override?.apiKey ?? config.apiKey;
+  const model = override?.model ?? config.model;
+
+  const frames: VisionFrame[] = [];
+
+  if (provider === "mock") {
+    // Heuristic: if the question or snippets mention a visual, attach a frame.
+    const visualHint = /see (here|this)|look at|bar graph|chart|slide|screen|diagram/i;
+    const needsFrame = visualHint.test(input.question) || input.snippets.some((s) => visualHint.test(s.text));
+    if (needsFrame && input.snippets.length > 0) {
+      const ts = input.snippets[0].startMs;
+      const base64 = await input.extractFrame(ts);
+      if (base64) frames.push({ timestampMs: ts, base64 });
+    }
+    const result = heuristicChat(input.question, input.snippets, model);
+    return { ...result, frames };
+  }
+
+  if (!apiKey && !/localhost|127\.0\.0\.1/.test(baseUrl)) {
+    throw new Error("LLM_API_KEY is not set. Add a key or set LLM_PROVIDER=mock.");
+  }
+
+  const tools = [
+    {
+      type: "function",
+      function: {
+        name: "get_frame",
+        description: "Extract a single video frame from the meeting recording at a given timestamp in milliseconds.",
+        parameters: {
+          type: "object",
+          properties: {
+            timestamp_ms: { type: "number", description: "Timestamp in milliseconds." },
+          },
+          required: ["timestamp_ms"],
+        },
+      },
+    },
+  ];
+
+  const context = input.snippets
+    .slice(0, 40)
+    .map(
+      (snippet, index) =>
+        `[${index}] ${snippet.meetingTitle} · ${snippet.speakerName ?? "Speaker"} (${Math.floor(
+          snippet.startMs / 1000,
+        )}s): ${snippet.text}`,
+    )
+    .join("\\n")
+    .slice(0, 60_000);
+
+  const messages: Array<Record<string, unknown>> = [
+    {
+      role: "system",
+      content:
+        "You are Click, a careful assistant that answers questions from meeting transcripts, notes and visuals. When a speaker references something on screen (a chart, slide, document, demo), call get_frame with the timestamp to see it. Never invent facts. Cite sources with [n].",
+    },
+    {
+      role: "user",
+      content: `Question: ${input.question}\n\nSources (numbered):\n${context}`,
+    },
+  ];
+
+  let answer = "";
+  let citations: ChatCitation[] = [];
+  let usage = { inputTokens: 0, outputTokens: 0 };
+
+  for (let iteration = 0; iteration < 5; iteration += 1) {
+    const response = await fetchWithRetry(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+      },
+      body: JSON.stringify({ model, temperature: 0.2, max_tokens: config.maxTokens, messages, tools }),
+    });
+    if (!response.ok) {
+      const detail = await response.text().catch(() => "");
+      throw new Error(`LLM provider returned ${response.status}: ${detail.slice(0, 300)}`);
+    }
+    const body = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string; tool_calls?: Array<{ id: string; function: { name: string; arguments: string } }> } }>;
+      usage?: { prompt_tokens?: number; completion_tokens?: number };
+    };
+    const message = body.choices?.[0]?.message;
+    usage = {
+      inputTokens: usage.inputTokens + (body.usage?.prompt_tokens ?? 0),
+      outputTokens: usage.outputTokens + (body.usage?.completion_tokens ?? 0),
+    };
+
+    if (message?.tool_calls?.length) {
+      messages.push({ role: "assistant", content: message.content ?? null, tool_calls: message.tool_calls });
+      for (const call of message.tool_calls) {
+        if (call.function.name === "get_frame") {
+          let timestampMs = 0;
+          try {
+            timestampMs = JSON.parse(call.function.arguments).timestamp_ms ?? 0;
+          } catch {
+            timestampMs = 0;
+          }
+          const base64 = await input.extractFrame(timestampMs);
+          if (base64) frames.push({ timestampMs, base64 });
+          messages.push({
+            role: "tool",
+            tool_call_id: call.id,
+            content: base64 ? "Frame captured and attached below." : "No frame available at that timestamp.",
+          });
+          if (base64) {
+            messages.push({
+              role: "user",
+              content: [
+                { type: "text", text: `Frame at ${Math.floor(timestampMs / 1000)}s:` },
+                { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64}` } },
+              ],
+            });
+          }
+        } else {
+          messages.push({ role: "tool", tool_call_id: call.id, content: "Unknown tool." });
+        }
+      }
+      continue;
+    }
+
+    answer = message?.content ?? "";
+    break;
+  }
+
+  const cited = new Set<number>();
+  for (const match of answer.matchAll(/\\[(\\d+)\\]/g)) {
+    const index = Number(match[1]);
+    if (Number.isFinite(index) && index >= 0 && index < input.snippets.length) cited.add(index);
+  }
+  citations = [...cited].map((index) => {
+    const snippet = input.snippets[index];
+    return {
+      meetingId: snippet.meetingId,
+      segmentId: snippet.segmentId,
+      quote: snippet.text.slice(0, 200),
+      label: `\${snippet.meetingTitle} · \${Math.floor(snippet.startMs / 60000)}:\${String(
+        Math.floor((snippet.startMs % 60000) / 1000),
+      ).padStart(2, "0")}`,
+    };
+  });
+
+  return { answer, citations, model, usage, frames };
+}
+
 export async function embedTexts(
   texts: string[],
   override?: ProviderOverride | null,
