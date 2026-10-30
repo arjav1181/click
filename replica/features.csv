@@ -131,9 +131,9 @@ Suggested follow-up questions,search,should,yes,no,P3
 Export a chat answer,search,could,no,no,P5
 Pre-meeting brief from past meetings,briefs,should,yes,no,P3
 Brief sources from calendar notes CRM and web,briefs,could,yes,no,P4
-Follow-up email draft from the meeting,briefs,should,yes,no,P3
-Follow-up composer with attachments and undo,briefs,should,yes,no,P3
-Send via SMTP Gmail or Outlook,briefs,should,yes,no,P3
+Follow-up email draft from the meeting,briefs,should,yes,yes,S40: /app/meetings/[id]/follow-up composer with recipients, subject and body
+Follow-up composer with attachments and undo,briefs,should,yes,partial,S40: attachments not wired yet; undo not implemented
+Send via SMTP Gmail or Outlook,briefs,should,yes,yes,S40: POST /api/v1/meetings/[id]/follow-up/send enqueues the email job
 Draft expiry and dismissal,briefs,should,yes,no,P3
 Private-by-default meetings,sharing,must,yes,yes,S23: meetings default to private; share links gate access to the recap
 Share to workspace domain or link,sharing,must,yes,yes,S23: POST /api/v1/meetings/[id]/shares creates link, domain or password-protected shares; GET lists them, DELETE revokes

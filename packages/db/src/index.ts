@@ -7,6 +7,7 @@ export * as sharingRepo from "./repositories/sharing";
 export * as speakersRepo from "./repositories/speakers";
 export * as vocabularyRepo from "./repositories/vocabulary";
 export * as developersRepo from "./repositories/developers";
+export * as followupRepo from "./repositories/followup";
 export * as groupsRepo from "./repositories/groups";
 export * as integrationsRepo from "./repositories/integrations";
 export * as legalHoldRepo from "./repositories/legal-hold";

@@ -978,6 +978,46 @@ export interface PublicRecap {
   transcript: Array<{ id: string; startMs: number; endMs: number; text: string; speakerName: string | null }>;
 }
 
+export interface EmailDraftRow {
+  id: string;
+  meetingId: string;
+  toAddrs: string[];
+  ccAddrs: string[];
+  bccAddrs: string[];
+  subject: string;
+  body: string;
+  attachments: Array<{ name: string; url: string }>;
+  status: "draft" | "sending" | "sent" | "failed" | "expired";
+  expiresAt: string | null;
+  sentAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function fetchFollowUp(meetingId: string): Promise<ApiResult<{ draft: EmailDraftRow }>> {
+  return apiFetch<{ draft: EmailDraftRow }>(`/api/v1/meetings/${meetingId}/follow-up`);
+}
+
+export async function updateFollowUp(
+  meetingId: string,
+  patch: Partial<Pick<EmailDraftRow, "toAddrs" | "ccAddrs" | "bccAddrs" | "subject" | "body">>,
+): Promise<ApiResult<{ draft: EmailDraftRow }>> {
+  return apiFetch<{ draft: EmailDraftRow }>(`/api/v1/meetings/${meetingId}/follow-up`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function sendFollowUp(
+  meetingId: string,
+  toAddrs: string[],
+): Promise<ApiResult<{ draft: EmailDraftRow }>> {
+  return apiFetch<{ draft: EmailDraftRow }>(`/api/v1/meetings/${meetingId}/follow-up/send`, {
+    method: "POST",
+    body: JSON.stringify({ toAddrs }),
+  });
+}
+
 export async function fetchPublicRecap(
   token: string,
   password?: string,
