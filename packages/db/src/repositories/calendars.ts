@@ -1,6 +1,6 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, gte, lte } from "drizzle-orm";
 import { withTenant, type TenantContext } from "../client";
-import { calendarConnections } from "../schema";
+import { calendarConnections, calendarEvents } from "../schema";
 
 export interface CalendarConnectionRow {
   id: string;
@@ -63,5 +63,54 @@ export async function deleteCalendarConnection(ctx: TenantContext, id: string): 
       .where(and(eq(calendarConnections.id, id), eq(calendarConnections.orgId, ctx.orgId)))
       .returning({ id: calendarConnections.id });
     return { ok: rows.length > 0 };
+  });
+}
+
+export interface CalendarEventRow {
+  id: string;
+  title: string | null;
+  startsAt: string;
+  endsAt: string;
+  meetingUrl: string | null;
+  provider: string | null;
+  autoJoin: boolean;
+  botStatus: string;
+}
+
+export async function listCalendarEvents(
+  ctx: TenantContext,
+  range: { from: Date; to: Date },
+): Promise<CalendarEventRow[]> {
+  return withTenant(ctx, async (tx) => {
+    const rows = await tx
+      .select({
+        id: calendarEvents.id,
+        title: calendarEvents.title,
+        startsAt: calendarEvents.startsAt,
+        endsAt: calendarEvents.endsAt,
+        meetingUrl: calendarEvents.meetingUrl,
+        provider: calendarEvents.provider,
+        autoJoin: calendarEvents.autoJoin,
+        botStatus: calendarEvents.botStatus,
+      })
+      .from(calendarEvents)
+      .where(
+        and(
+          eq(calendarEvents.orgId, ctx.orgId),
+          gte(calendarEvents.endsAt, range.from),
+          lte(calendarEvents.startsAt, range.to),
+        ),
+      )
+      .orderBy(asc(calendarEvents.startsAt));
+    return rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      startsAt: row.startsAt.toISOString(),
+      endsAt: row.endsAt.toISOString(),
+      meetingUrl: row.meetingUrl,
+      provider: row.provider,
+      autoJoin: row.autoJoin,
+      botStatus: row.botStatus,
+    }));
   });
 }

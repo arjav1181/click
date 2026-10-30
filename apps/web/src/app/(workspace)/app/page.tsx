@@ -5,21 +5,28 @@ import {
   CardHeader,
   Badge,
   EmptyState,
-  Skeleton,
 } from "@click/ui";
-import { data } from "@click/core";
-import { getUsage, listMeetings } from "@/lib/api";
 import { CalendarEventCard, MeetingCard } from "@click/ui";
+import { calendarsRepo, meetingsRepo, workspaceRepo } from "@click/db";
+import { requireOrgSession } from "@/server/auth";
+import { NewMeetingButton, RecordNowButton } from "./home-actions";
 
 export default async function HomePage() {
+  const session = await requireOrgSession();
+  const ctx = { orgId: session.orgId, userId: session.id };
+  const now = Date.now();
+
   const [{ meetings }, events, usage] = await Promise.all([
-    listMeetings({ limit: 6 }),
-    data.listCalendarEvents(),
-    getUsage(),
+    meetingsRepo.listMeetings(ctx, { limit: 6 }),
+    calendarsRepo.listCalendarEvents(ctx, {
+      from: new Date(now - 30 * 60 * 1000),
+      to: new Date(now + 24 * 60 * 60 * 1000),
+    }),
+    workspaceRepo.getUsage(ctx),
   ]);
 
-  const upcoming = events.filter((e) => new Date(e.startsAt).getTime() > Date.now() - 30 * 60 * 1000);
-  const budgetPct = Math.round((usage.costEstimate / usage.budgetCap) * 100);
+  const upcoming = events.filter((event) => new Date(event.startsAt).getTime() > now - 30 * 60 * 1000);
+  const budgetPct = usage.budgetCap > 0 ? Math.round((usage.costEstimate / usage.budgetCap) * 100) : 0;
 
   return (
     <div className="mx-auto max-w-6xl p-6">
@@ -36,7 +43,7 @@ export default async function HomePage() {
               Import recording
             </Button>
           </Link>
-          <Button size="sm">New meeting</Button>
+          <NewMeetingButton />
         </div>
       </div>
 
@@ -69,7 +76,18 @@ export default async function HomePage() {
                 />
               ) : (
                 upcoming.map((event) => (
-                  <CalendarEventCard key={event.id} event={event} />
+                  <CalendarEventCard
+                    key={event.id}
+                    event={{
+                      id: event.id,
+                      title: event.title ?? "Untitled meeting",
+                      startsAt: event.startsAt,
+                      endsAt: event.endsAt,
+                      meetingUrl: event.meetingUrl,
+                      autoJoin: event.autoJoin,
+                      botStatus: event.botStatus as never,
+                    }}
+                  />
                 ))
               )}
             </div>
@@ -87,10 +105,10 @@ export default async function HomePage() {
                       meeting={{
                         id: meeting.id,
                         title: meeting.title,
-                        startedAt: meeting.startedAt,
+                        startedAt: meeting.startedAt ?? new Date().toISOString(),
                         durationSeconds: meeting.durationSeconds,
-                        source: meeting.source,
-                        status: meeting.status,
+                        source: meeting.source as never,
+                        status: meeting.status as never,
                         language: meeting.language,
                         participantCount: meeting.participantCount,
                         folderName: meeting.folderName,
@@ -111,9 +129,7 @@ export default async function HomePage() {
               Start a recording from this device without a bot.
             </p>
             <div className="mt-3 grid gap-2">
-              <Button size="sm" className="w-full">
-                Record now
-              </Button>
+              <RecordNowButton />
               <Link href="/app/import">
                 <Button variant="secondary" size="sm" className="w-full">
                   Upload a file
