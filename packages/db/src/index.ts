@@ -9,6 +9,7 @@ export * as vocabularyRepo from "./repositories/vocabulary";
 export * as developersRepo from "./repositories/developers";
 export * as followupRepo from "./repositories/followup";
 export * as groupsRepo from "./repositories/groups";
+export * as recipesRepo from "./repositories/recipes";
 export * as integrationsRepo from "./repositories/integrations";
 export * as legalHoldRepo from "./repositories/legal-hold";
 export * as meetingsRepo from "./repositories/meetings";

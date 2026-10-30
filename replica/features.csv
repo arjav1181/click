@@ -107,7 +107,7 @@ Custom templates with prompt and sections,automation,must,yes,yes,S30: POST/PATC
 Share templates with the workspace,automation,should,yes,yes,S30: a template can be saved with scope=workspace so every member sees it
 Assign templates to groups,automation,should,yes,no,P3
 Meeting rules mapping conditions to template or policy,automation,should,yes,no,P4
-Recipes as saved prompts with single or multi scope,automation,must,yes,no,P3
+Recipes as saved prompts with single or multi scope,automation,must,yes,yes,S31,S32: /app/recipes list and /app/recipes/[id]/edit builder over GET/POST/PATCH/DELETE /api/v1/recipes
 Scheduled skills per meeting daily weekly monthly,automation,should,yes,no,P3
 Skill output feed,automation,should,yes,no,P3
 Route skill outputs to integrations,automation,should,yes,no,P4

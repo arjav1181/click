@@ -63,3 +63,4 @@ Screens below moved from the bundled demo data to the real API. See
 - S46 | 2026-10-30 | done | MCP setup at `/app/developers/mcp`: endpoint URL, available tools and client snippets for Claude Desktop, Cursor and generic clients. Keys are created on the Developers page.
 - S54 | 2026-10-30 | done | Admin groups at `/admin/groups`: create groups, add and remove members, delete. Backed by GET/POST /api/v1/groups, PATCH/DELETE /api/v1/groups/[id] and POST/DELETE /api/v1/groups/[id]/members/[userId].
 - S40 | 2026-10-30 | done | Follow-up composer at `/app/meetings/[id]/follow-up`: recipients, subject and body with save and send. Backed by GET/PATCH /api/v1/meetings/[id]/follow-up and POST /api/v1/meetings/[id]/follow-up/send, which enqueues the email job.
+- S31,S32 | 2026-10-30 | done | Recipes at `/app/recipes` and `/app/recipes/[id]/edit`: list, create, edit prompt/scope/visibility/model and delete. Backed by GET/POST/PATCH/DELETE /api/v1/recipes.

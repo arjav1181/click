@@ -1097,6 +1097,55 @@ export async function fetchLegalHolds(): Promise<ApiResult<{ holds: LegalHoldRow
   return apiFetch<{ holds: LegalHoldRow[] }>("/api/v1/legal-hold");
 }
 
+export interface RecipeRow {
+  id: string;
+  name: string;
+  prompt: string;
+  scope: "single" | "multi";
+  model: string | null;
+  visibility: "private" | "workspace" | "link";
+  version: number;
+  ownerId: string;
+  ownerName: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function fetchRecipes(): Promise<ApiResult<{ recipes: RecipeRow[] }>> {
+  return apiFetch<{ recipes: RecipeRow[] }>("/api/v1/recipes");
+}
+
+export async function fetchRecipe(id: string): Promise<ApiResult<{ recipe: RecipeRow }>> {
+  return apiFetch<{ recipe: RecipeRow }>(`/api/v1/recipes/${id}`);
+}
+
+export async function createRecipe(input: {
+  name: string;
+  prompt: string;
+  scope?: "single" | "multi";
+  model?: string | null;
+  visibility?: "private" | "workspace" | "link";
+}): Promise<ApiResult<{ id: string }>> {
+  return apiFetch<{ id: string }>("/api/v1/recipes", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateRecipe(
+  id: string,
+  patch: { name?: string; prompt?: string; scope?: "single" | "multi"; model?: string | null; visibility?: "private" | "workspace" | "link" },
+): Promise<ApiResult<{ recipe: RecipeRow }>> {
+  return apiFetch<{ recipe: RecipeRow }>(`/api/v1/recipes/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function deleteRecipe(id: string): Promise<ApiResult<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>(`/api/v1/recipes/${id}`, { method: "DELETE" });
+}
+
 export interface GroupMemberRow {
   id: string;
   name: string;
