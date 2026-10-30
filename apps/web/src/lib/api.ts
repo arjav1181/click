@@ -1223,6 +1223,10 @@ export async function getUsage(): Promise<UsageSummary> {
   return payload.usage;
 }
 
+export async function fetchUsage(): Promise<ApiResult<{ usage: UsageSummary }>> {
+  return apiFetch<{ usage: UsageSummary }>("/api/v1/org/usage");
+}
+
 export async function uploadRecording(input: {
   name: string;
   size: number;
