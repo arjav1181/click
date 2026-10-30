@@ -1097,6 +1097,67 @@ export async function fetchLegalHolds(): Promise<ApiResult<{ holds: LegalHoldRow
   return apiFetch<{ holds: LegalHoldRow[] }>("/api/v1/legal-hold");
 }
 
+export interface SkillRow {
+  id: string;
+  recipeId: string;
+  recipeName: string;
+  trigger: string;
+  targetFilter: Record<string, unknown>;
+  outputTargets: unknown[];
+  enabled: boolean;
+  lastRunAt: string | null;
+  createdAt: string;
+}
+
+export interface SkillRunRow {
+  id: string;
+  skillId: string;
+  skillName: string;
+  meetingIds: string[];
+  status: string;
+  outputMarkdown: string | null;
+  error: string | null;
+  tokensIn: number;
+  tokensOut: number;
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
+}
+
+export async function fetchSkills(): Promise<ApiResult<{ skills: SkillRow[] }>> {
+  return apiFetch<{ skills: SkillRow[] }>("/api/v1/skills");
+}
+
+export async function createSkill(input: {
+  recipeId: string;
+  trigger?: string;
+  targetFilter?: Record<string, unknown>;
+  enabled?: boolean;
+}): Promise<ApiResult<{ id: string }>> {
+  return apiFetch<{ id: string }>("/api/v1/skills", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateSkill(
+  id: string,
+  patch: { recipeId?: string; trigger?: string; targetFilter?: Record<string, unknown>; enabled?: boolean },
+): Promise<ApiResult<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>(`/api/v1/skills/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function deleteSkill(id: string): Promise<ApiResult<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>(`/api/v1/skills/${id}`, { method: "DELETE" });
+}
+
+export async function fetchSkillRuns(): Promise<ApiResult<{ runs: SkillRunRow[] }>> {
+  return apiFetch<{ runs: SkillRunRow[] }>("/api/v1/skills/runs");
+}
+
 export interface PersonRow {
   id: string;
   name: string;
