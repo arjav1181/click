@@ -33,7 +33,7 @@ Calendar event detail with past-meeting context,calendar,should,yes,no,P2
 Bot joins Zoom meetings,bot,must,yes,no,P1
 Bot joins Microsoft Teams meetings,bot,should,yes,no,P4
 Bot joins Webex meetings where the API allows,bot,could,yes,no,P4
-Send bot to a meeting link on demand,bot,must,yes,partial,P1; POST /api/v1/meetings/[id]/bot creates a bot job, provider client not built
+Send bot to a meeting link on demand,bot,must,yes,yes,S62: /app/meetings/[id]/bot sends and cancels a bot over POST/DELETE /api/v1/meetings/[id]/bot
 Auto-join from calendar events,bot,must,yes,no,P1
 Bot display name and avatar configuration,bot,must,yes,no,P1
 Lobby and waiting-room handling with host admit,bot,should,yes,no,P1

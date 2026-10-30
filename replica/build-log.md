@@ -73,3 +73,4 @@ Screens below moved from the bundled demo data to the real API. See
 - Vision | 2026-10-30 | done | Vision-aware chat: packages/backend/src/video.ts extracts a frame from a recording at a timestamp with ffmpeg; chatWithVision lets the LLM call a get_frame tool, feeds the frame back as an image, and returns it to the UI. GET /api/v1/meetings/[id]/frame serves frames; the Ask AI page renders them inline.
 - S52 | 2026-10-30 | done | Notifications at `/settings/notifications`: digest, mentions, follow-ups, reminders and quiet hours. Backed by GET/PUT /api/v1/notifications stored in the organization settings blob.
 - S39 | 2026-10-30 | done | Pre-meeting brief at `/app/briefs/[eventId]`: bullets from recent meetings with source links. Backed by GET /api/v1/briefs/[eventId].
+- S62 | 2026-10-30 | done | Bot join settings at `/app/meetings/[id]/bot`: send a bot (provider + meeting link) and cancel. Backed by POST/DELETE /api/v1/meetings/[id]/bot.
