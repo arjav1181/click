@@ -173,8 +173,8 @@ Zapier or n8n generic automation bridge,integrations,should,yes,no,P4
 Confluence and SharePoint export,integrations,could,yes,no,P5
 Snowflake or S3 warehouse export,integrations,could,yes,no,P5
 Calendar and email provider integrations,integrations,must,yes,no,P0
-REST API with scoped keys,api,must,yes,partial,P1; cookie-session API implemented, scoped API keys not built
-Webhooks with signing and retries,api,must,yes,no,P4
+REST API with scoped keys,api,must,yes,yes,S45: GET/POST /api/v1/api-keys and DELETE /api/v1/api-keys/[id] to create, list and revoke scoped keys; the raw key is shown once
+Webhooks with signing and retries,api,must,yes,yes,S45: GET/POST /api/v1/webhooks, PATCH/DELETE /api/v1/webhooks/[id] and GET /api/v1/webhooks/[id]/deliveries for endpoints, delivery log and status
 MCP server for external AI clients,api,should,yes,no,P4
 GraphQL read API,api,could,yes,no,P5; Fireflies GraphQL
 Rate limits and quotas,api,should,yes,yes,should; done in replica-backend: rateLimit helper applied to auth endpoints
