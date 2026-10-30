@@ -129,7 +129,7 @@ Chat and Work modes (answer versus artifact),search,could,yes,no,P5; Otter
 Model selection for chat,search,should,yes,no,P3
 Suggested follow-up questions,search,should,yes,no,P3
 Export a chat answer,search,could,no,no,P5
-Pre-meeting brief from past meetings,briefs,should,yes,no,P3
+Pre-meeting brief from past meetings,briefs,should,yes,yes,S39: /app/briefs/[eventId] generates a brief from recent meetings over GET /api/v1/briefs/[eventId]
 Brief sources from calendar notes CRM and web,briefs,could,yes,no,P4
 Follow-up email draft from the meeting,briefs,should,yes,yes,S40: /app/meetings/[id]/follow-up composer with recipients, subject and body
 Follow-up composer with attachments and undo,briefs,should,yes,partial,S40: attachments not wired yet; undo not implemented
