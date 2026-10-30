@@ -109,7 +109,7 @@ Assign templates to groups,automation,should,yes,no,P3
 Meeting rules mapping conditions to template or policy,automation,should,yes,no,P4
 Recipes as saved prompts with single or multi scope,automation,must,yes,yes,S31,S32: /app/recipes list and /app/recipes/[id]/edit builder over GET/POST/PATCH/DELETE /api/v1/recipes
 Scheduled skills per meeting daily weekly monthly,automation,should,yes,yes,S33,S34: /app/skills list and /app/skills/[id]/edit over GET/POST/PATCH/DELETE /api/v1/skills
-Skill output feed,automation,should,yes,no,P3
+Skill output feed,automation,should,yes,yes,S35: /app/feed lists skill runs with status, output and token counts over GET /api/v1/skills/runs
 Route skill outputs to integrations,automation,should,yes,no,P4
 Test-run a skill before enabling,automation,could,no,no,P4
 Auto-extract action items,actions,must,yes,yes,P0; done in replica-backend: summarize job writes action_items with a source segment
