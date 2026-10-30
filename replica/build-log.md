@@ -77,3 +77,4 @@ Screens below moved from the bundled demo data to the real API. See
 - S61 | 2026-10-30 | done | Bot console at `/bot/console`: queued, joining, active and failed bot jobs with lobby reason, error and attempts. Backed by GET /api/v1/bot-jobs (owner/admin only).
 - S63 | 2026-10-30 | done | Bot chat notice at `/bot/notice`: edit the message posted in the meeting chat when the bot joins. Backed by GET/PUT /api/v1/bot/notice stored in the organization settings blob.
 - S09 | 2026-10-30 | done | Live meeting at `/app/meetings/[id]/live`: live transcript with timestamps and speakers plus capture status. Backed by GET /api/v1/meetings/[id] and GET /api/v1/meetings/[id]/segments.
+- S07 | 2026-10-30 | done | Home at `/app`: upcoming calendar events, recent meetings and the AI budget chip read straight from the database. "New meeting" creates a meeting over POST /api/v1/meetings; "Record now" captures the microphone with MediaRecorder and uploads it to POST /api/v1/uploads.

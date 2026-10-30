@@ -28,7 +28,7 @@ SMTP storage and SSO configuration UI,workspace,must,no,yes,S60: /admin/instance
 Google Calendar sync,calendar,must,yes,partial,S05: /settings/calendars lists, connects and disconnects calendar connections over GET/POST/DELETE /api/v1/calendars; real OAuth sync is still missing
 Microsoft Outlook calendar sync,calendar,should,yes,partial,S05: Microsoft provider supported in the same flow; real OAuth sync is still missing
 Auto-join rules per calendar or event,calendar,must,yes,no,P1
-Upcoming meetings widget,calendar,must,yes,partial,P1; widget UI built in replica-build, still on demo calendar data
+Upcoming meetings widget,calendar,must,yes,yes,S07: /app renders upcoming calendar events from the database with bot-join badges over calendarsRepo.listCalendarEvents
 Calendar event detail with past-meeting context,calendar,should,yes,no,P2
 Bot joins Zoom meetings,bot,must,yes,no,P1
 Bot joins Microsoft Teams meetings,bot,should,yes,no,P4
@@ -49,7 +49,7 @@ Chrome and Chromium extension capture for Google Meet,botless,must,yes,no,P4
 Extension in-page live caption overlay,botless,should,yes,no,P4
 Extension capture of any browser tab audio,botless,could,yes,no,P4; Otter
 Mobile in-person recording,botless,must,yes,no,P4
-Browser microphone recorder,botless,could,yes,no,P4
+Browser microphone recorder,botless,could,yes,partial,S07: Record now on /app captures the microphone with MediaRecorder and uploads the clip to POST /api/v1/uploads
 Snapshots of shared screens during capture,botless,could,yes,no,P4; Granola and Otter
 Botless capture that works with headphones,botless,must,yes,no,P0
 Upload audio or video up to 5 GB,import,must,yes,partial,P0; multipart upload implemented, default cap 500 MB via MAX_UPLOAD_MB
@@ -180,7 +180,7 @@ GraphQL read API,api,could,yes,no,P5; Fireflies GraphQL
 Rate limits and quotas,api,should,yes,yes,should; done in replica-backend: rateLimit helper applied to auth endpoints
 API documentation and OpenAPI spec,api,must,yes,no,P1; route inventory in replica/backend.md, OpenAPI not generated
 CLI for admin and operations,api,must,no,yes,P0; done in replica-backend: create-admin, reset-password, verify-email, invite
-Web application,clients,must,yes,partial,P0; app shell plus API-backed pages for home, meetings, meeting detail, search and import
+Web application,clients,must,yes,partial,S07: /app home renders real meetings, upcoming events and the AI budget chip; New meeting creates a meeting and Record now captures the microphone in the browser
 Desktop application for macOS and Windows,clients,must,yes,no,P1
 Browser extension for Chrome and Chromium,clients,must,yes,no,P4
 Mobile apps for iOS and Android,clients,should,yes,no,P4
