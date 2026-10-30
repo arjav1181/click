@@ -4,6 +4,7 @@ export * from "./emails";
 export * from "./export";
 export * from "./mailer";
 export * from "./storage";
+export * from "./video";
 export * from "./providers";
 export * from "./jobs";
 export * from "./queue";
