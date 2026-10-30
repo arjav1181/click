@@ -1,76 +1,56 @@
-import { meetingsRepo, notesRepo } from "@click/db";
+import { meetingsRepo } from "@click/db";
+import { exportFilename, getObject, isExportFormat } from "@click/backend";
 import { handler, ApiError } from "@/server/http";
 import { requireOrgSession } from "@/server/auth";
-
-function safeFilename(title: string, ext: string) {
-  const base = title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 80);
-  return `${base || "meeting"}.${ext}`;
-}
+import {
+  buildExportPayload,
+  exportContentType,
+  renderExport,
+} from "@/server/export";
 
 export const GET = handler(async (request, context: { params: Promise<{ id: string }> }) => {
   const session = await requireOrgSession();
   const { id } = await context.params;
   const ctx = { orgId: session.orgId, userId: session.id };
-  const meeting = await meetingsRepo.getMeeting(ctx, id);
-  if (!meeting) throw new ApiError(404, "not_found", "Meeting not found.");
 
   const url = new URL(request.url);
-  const format = url.searchParams.get("format") ?? "md";
-  const note = await notesRepo.getNote(ctx, id);
-  const transcript = await meetingsRepo.getTranscript(ctx, id);
+  const requested = (url.searchParams.get("format") ?? "md").toLowerCase();
+  if (!isExportFormat(requested)) {
+    throw new ApiError(422, "unsupported_format", "Pick one of md, txt, pdf, docx, srt, vtt, json or mp3.");
+  }
+  const format = requested;
 
-  if (format === "json") {
-    return new Response(JSON.stringify({ meeting, note, transcript: transcript.segments }, null, 2), {
+  const payload = await buildExportPayload(ctx, id);
+
+  if (format === "mp3") {
+    const recording = await meetingsRepo.getMeetingRecording(ctx, id);
+    if (!recording) {
+      throw new ApiError(409, "no_audio", "This meeting has no stored recording to export.");
+    }
+    const object = await getObject(recording.storageKey);
+    if (!object) {
+      throw new ApiError(409, "no_audio", "The recording for this meeting is no longer available.");
+    }
+    const chunks: Buffer[] = [];
+    for await (const chunk of object.body as AsyncIterable<Buffer>) {
+      chunks.push(Buffer.from(chunk));
+    }
+    const body = Buffer.concat(chunks);
+    return new Response(new Uint8Array(body), {
       headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${safeFilename(meeting.title, "json")}"`,
+        "Content-Type": "audio/mpeg",
+        "Content-Disposition": `attachment; filename="${exportFilename(payload.meeting.title, "mp3")}"`,
+        "Content-Length": String(body.length),
       },
     });
   }
 
-  if (format === "txt") {
-    const lines = transcript.segments.map((segment) => {
-      const seconds = Math.floor(segment.startMs / 1000);
-      const stamp = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
-      return `[${stamp}] ${segment.speakerName ?? "Speaker"}: ${segment.text}`;
-    });
-    return new Response(lines.join("\n") + "\n", {
-      headers: {
-        "Content-Type": "text/plain; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${safeFilename(meeting.title, "txt")}"`,
-      },
-    });
-  }
-
-  const parts = [`# ${meeting.title}`, ""];
-  if (meeting.startedAt) {
-    parts.push(`_${new Date(meeting.startedAt).toUTCString()} · ${Math.round(meeting.durationSeconds / 60)} min_`, "");
-  }
-  if (note?.sections.length) {
-    for (const section of note.sections) {
-      parts.push(`## ${section.title}`, "", section.body.trim(), "");
-    }
-  } else if (note?.rawMarkdown) {
-    parts.push(note.rawMarkdown.trim(), "");
-  } else {
-    parts.push("_No notes yet._", "");
-  }
-  if (transcript.segments.length) {
-    parts.push("## Transcript", "");
-    for (const segment of transcript.segments) {
-      const seconds = Math.floor(segment.startMs / 1000);
-      const stamp = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
-      parts.push(`**${segment.speakerName ?? "Speaker"}** · ${stamp}`, "", segment.text, "");
-    }
-  }
-  return new Response(parts.join("\n"), {
+  const body = renderExport(format, payload);
+  return new Response(new Uint8Array(body), {
     headers: {
-      "Content-Type": "text/markdown; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${safeFilename(meeting.title, "md")}"`,
+      "Content-Type": exportContentType(format),
+      "Content-Disposition": `attachment; filename="${exportFilename(payload.meeting.title, format)}"`,
+      "Content-Length": String(body.length),
     },
   });
 });

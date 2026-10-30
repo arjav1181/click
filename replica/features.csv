@@ -189,7 +189,7 @@ Consent record stored per meeting,security,must,yes,yes,P0; done in replica-back
 Recording indicator on every capture surface,security,must,yes,no,P0
 Transcript-only mode with zero audio retention,security,must,yes,no,P1; Granola
 Encryption at rest and in transit,security,must,yes,partial,P0; AES-256-GCM for stored secrets, TLS termination is the operator job
-Data export for portability,security,must,yes,partial,P0; GET /api/v1/meetings/[id]/export exists, full-account export not built
+Data export for portability,security,must,yes,partial,S43: export centre over GET /api/v1/meetings/[id]/export and POST /api/v1/export; md, txt, pdf, docx, srt, vtt, json and mp3 formats, single download or a zip archive of many meetings; full-account export is still missing
 Account and workspace deletion,security,must,yes,partial,S06 danger zone: owner deletes the workspace over DELETE /api/v1/org after typing the exact workspace name; personal account deletion is still missing
 Enforce SSO for the workspace,security,should,yes,no,P5
 IP allowlist,security,could,no,no,P5

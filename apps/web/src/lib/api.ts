@@ -622,6 +622,83 @@ export async function deleteOrg(
   });
 }
 
+export const EXPORT_FORMATS = [
+  "md",
+  "txt",
+  "pdf",
+  "docx",
+  "srt",
+  "vtt",
+  "json",
+  "mp3",
+] as const;
+
+export type ExportFormat = (typeof EXPORT_FORMATS)[number];
+
+export interface ExportDownload {
+  blob: Blob;
+  filename: string;
+  exported: number;
+  skipped: number;
+}
+
+async function downloadFrom(
+  url: string,
+  init: RequestInit | undefined,
+  fallbackName: string,
+): Promise<{ data: ExportDownload | null; error: string | null }> {
+  try {
+    const response = await fetch(url, {
+      ...init,
+      headers: {
+        ...(init?.body ? { "Content-Type": "application/json" } : {}),
+        ...(init?.headers ?? {}),
+      },
+    });
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => ({}))) as { error?: { message?: string } };
+      return { data: null, error: payload.error?.message ?? "That export did not work. Try again." };
+    }
+    const disposition = response.headers.get("Content-Disposition") ?? "";
+    const match = /filename="([^"]+)"/.exec(disposition);
+    return {
+      data: {
+        blob: await response.blob(),
+        filename: match?.[1] ?? fallbackName,
+        exported: Number(response.headers.get("X-Exported-Count") ?? 1),
+        skipped: Number(response.headers.get("X-Skipped-Count") ?? 0),
+      },
+      error: null,
+    };
+  } catch {
+    return { data: null, error: "We could not reach the server. Check your connection and try again." };
+  }
+}
+
+/** Downloads one meeting in the chosen format. */
+export async function exportMeeting(
+  meetingId: string,
+  format: ExportFormat,
+): Promise<{ data: ExportDownload | null; error: string | null }> {
+  return downloadFrom(
+    `/api/v1/meetings/${meetingId}/export?format=${encodeURIComponent(format)}`,
+    undefined,
+    `meeting.${format}`,
+  );
+}
+
+/** Downloads a zip archive with one file per selected meeting. */
+export async function exportMeetings(
+  meetingIds: string[],
+  format: ExportFormat,
+): Promise<{ data: ExportDownload | null; error: string | null }> {
+  return downloadFrom(
+    "/api/v1/export",
+    { method: "POST", body: JSON.stringify({ meetingIds, format }) },
+    `click-export-${format}.zip`,
+  );
+}
+
 export interface AiFeatureGates {
   summaries: boolean;
   actionItems: boolean;
