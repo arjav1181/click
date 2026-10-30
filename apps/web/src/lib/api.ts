@@ -1374,6 +1374,23 @@ export async function fetchRetention(): Promise<ApiResult<{ policy: RetentionPol
   return apiFetch<{ policy: RetentionPolicy }>("/api/v1/retention");
 }
 
+export interface BriefBullet {
+  text: string;
+  sourceMeetingId?: string;
+  sourceTitle?: string;
+}
+
+export interface BriefData {
+  eventId: string;
+  eventTitle: string | null;
+  eventStartsAt: string | null;
+  bullets: BriefBullet[];
+}
+
+export async function fetchBrief(eventId: string): Promise<ApiResult<{ brief: BriefData }>> {
+  return apiFetch<{ brief: BriefData }>(`/api/v1/briefs/${eventId}`);
+}
+
 export interface NotificationPrefs {
   digest: boolean;
   mentions: boolean;
