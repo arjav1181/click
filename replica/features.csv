@@ -25,8 +25,8 @@ Audit log CSV export,workspace,should,yes,yes,P1; S58 admin audit log exports th
 Workspace usage analytics dashboard,workspace,should,yes,yes,S57: /admin/analytics renders member count, ASR seconds, LLM tokens, cost estimate and budget cap from GET /api/v1/org/usage
 AI budget cap with alerts and hard stop,workspace,must,no,yes,P0; S56 admin AI policy sets the per-workspace monthly cap, shows spend against it, warns when it is hit and hard-stops AI work
 SMTP storage and SSO configuration UI,workspace,must,no,yes,S60: /admin/instance renders provider status (ASR, LLM, embeddings, SMTP) with test-connection buttons
-Google Calendar sync,calendar,must,yes,no,P1; calendar_connections table and token encryption exist, OAuth sync not built
-Microsoft Outlook calendar sync,calendar,should,yes,no,P4
+Google Calendar sync,calendar,must,yes,partial,S05: /settings/calendars lists, connects and disconnects calendar connections over GET/POST/DELETE /api/v1/calendars; real OAuth sync is still missing
+Microsoft Outlook calendar sync,calendar,should,yes,partial,S05: Microsoft provider supported in the same flow; real OAuth sync is still missing
 Auto-join rules per calendar or event,calendar,must,yes,no,P1
 Upcoming meetings widget,calendar,must,yes,partial,P1; widget UI built in replica-build, still on demo calendar data
 Calendar event detail with past-meeting context,calendar,should,yes,no,P2
