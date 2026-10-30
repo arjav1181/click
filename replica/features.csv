@@ -10,7 +10,7 @@ SCIM user provisioning,onboarding,could,yes,no,P5; Granola and Otter
 Email invite links for teammates,workspace,must,yes,yes,P0; done in replica-backend: invitation tokens, public preview, accept endpoint, CLI invite. S53 admin members screen sends invitations over POST /api/v1/org/invites
 Workspace creation and domain auto-join,workspace,should,yes,no,P2
 Guided onboarding (calendar capture providers retention),onboarding,must,yes,partial,P0; UI built in replica-build M0/M1; data layer is seed/fake until replica-backend
-Profile locale timezone and avatar,onboarding,must,yes,partial,P0; done in replica-backend: GET/PATCH /api/v1/settings/profile
+Profile locale timezone and avatar,onboarding,must,yes,yes,S47: profile name, avatar URL, locale and time zone over GET/PATCH /api/v1/settings/profile; links to the related settings screens
 Roles owner admin member,workspace,must,yes,yes,P0; done in replica-backend: memberships table, role checks on admin routes, RLS by org. S53 admin members screen lets an owner or admin change a role inline
 Groups for sharing and template assignment,workspace,should,yes,no,P3
 Deactivate and reactivate members,workspace,must,yes,yes,P0; S53 admin members screen over GET /api/v1/org/members and PATCH /api/v1/org/members/[id]: deactivate and reactivate with last-owner guard

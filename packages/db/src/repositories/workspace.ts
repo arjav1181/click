@@ -680,13 +680,14 @@ export async function updateActionItem(
 
 export async function updateProfile(
   ctx: TenantContext,
-  patch: { name?: string; locale?: string; timezone?: string },
+  patch: { name?: string; locale?: string; timezone?: string; avatarUrl?: string | null },
 ) {
   return withTenant(ctx, async (tx) => {
     const values: Record<string, unknown> = {};
     if (patch.name !== undefined) values.name = patch.name.slice(0, 120);
     if (patch.locale !== undefined) values.locale = patch.locale.slice(0, 20);
     if (patch.timezone !== undefined) values.timezone = patch.timezone.slice(0, 60);
+    if (patch.avatarUrl !== undefined) values.avatarUrl = patch.avatarUrl;
     if (Object.keys(values).length > 0) {
       await tx.update(users).set(values).where(eq(users.id, ctx.userId));
     }

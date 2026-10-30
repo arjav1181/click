@@ -14,6 +14,7 @@ const schema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
   locale: z.string().trim().min(2).max(20).optional(),
   timezone: z.string().trim().min(1).max(60).optional(),
+  avatarUrl: z.string().url().max(2000).nullable().optional(),
 });
 
 export const PATCH = handler(async (request) => {
