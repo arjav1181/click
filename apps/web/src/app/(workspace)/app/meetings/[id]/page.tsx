@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Button,
@@ -8,13 +8,16 @@ import {
   Card,
   CardHeader,
   Badge,
+  Banner,
+  Dialog,
   EmptyState,
   Skeleton,
   Textarea,
   Input,
+  Select,
   CitationChip,
 } from "@click/ui";
-import { generateNote, getMeeting, getNote, listActionItems, listTranscriptSegments, saveNote } from "@/lib/api";
+import { generateNote, getMeeting, getNote, listActionItems, listTranscriptSegments, saveNote, fetchShares, createShare, revokeShare, type PublicShareRow } from "@/lib/api";
 import { TranscriptSegment as TranscriptSegmentUI } from "@click/ui";
 import type { Meeting, TranscriptSegment, Note, ActionItem } from "@click/core";
 import Link from "next/link";
@@ -32,6 +35,13 @@ export default function MeetingWorkspacePage() {
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shares, setShares] = useState<PublicShareRow[]>([]);
+  const [shareAccess, setShareAccess] = useState<"link" | "domain" | "password">("link");
+  const [sharePassword, setSharePassword] = useState("");
+  const [shareBusy, setShareBusy] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [revealedLink, setRevealedLink] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -50,6 +60,38 @@ export default function MeetingWorkspacePage() {
       active = false;
     };
   }, [id]);
+
+  const loadShares = useCallback(async () => {
+    const result = await fetchShares(id);
+    if (result.data) setShares(result.data.shares);
+  }, [id]);
+
+  useEffect(() => {
+    if (shareOpen) void loadShares();
+  }, [shareOpen, loadShares]);
+
+  const createShareLink = async () => {
+    setShareBusy(true);
+    setShareError(null);
+    const result = await createShare(id, {
+      access: shareAccess,
+      password: shareAccess === "password" ? sharePassword : undefined,
+    });
+    setShareBusy(false);
+    if (!result.data) {
+      setShareError(result.error ?? "That share could not be created.");
+      return;
+    }
+    setRevealedLink(result.data.link);
+    setSharePassword("");
+    await loadShares();
+  };
+
+  const revokeShareLink = async (shareId: string) => {
+    const result = await revokeShare(id, shareId);
+    if (result.error) return;
+    await loadShares();
+  };
 
   const saveRaw = async () => {
     setSaving(true);
@@ -111,7 +153,7 @@ export default function MeetingWorkspacePage() {
               Follow-up
             </Button>
           </Link>
-          <Button variant="secondary" size="sm">
+          <Button variant="secondary" size="sm" onClick={() => setShareOpen(true)}>
             Share
           </Button>
           <Link href={`/app/export?meeting=${id}`}>
@@ -277,6 +319,82 @@ export default function MeetingWorkspacePage() {
           </Card>
         </aside>
       </div>
+
+      <Dialog open={shareOpen} onClose={() => setShareOpen(false)} title="Share this meeting" size="lg">
+        {revealedLink ? (
+          <Banner tone="success" title="Share link ready">
+            <span className="mono break-all text-xs">{revealedLink}</span>
+          </Banner>
+        ) : null}
+        {shareError ? <p className="text-xs text-danger">{shareError}</p> : null}
+
+        <div className="grid gap-3">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="w-44">
+              <label className="mb-1 block text-xs font-semibold text-text-muted" htmlFor="share-access">
+                Access
+              </label>
+              <Select
+                id="share-access"
+                value={shareAccess}
+                onChange={(event) => setShareAccess(event.target.value as "link" | "domain" | "password")}
+              >
+                <option value="link">Anyone with the link</option>
+                <option value="domain">Workspace domain</option>
+                <option value="password">Password protected</option>
+              </Select>
+            </div>
+            {shareAccess === "password" ? (
+              <div className="min-w-[200px] flex-1">
+                <label className="mb-1 block text-xs font-semibold text-text-muted" htmlFor="share-password">
+                  Password
+                </label>
+                <Input
+                  id="share-password"
+                  type="password"
+                  value={sharePassword}
+                  onChange={(event) => setSharePassword(event.target.value)}
+                />
+              </div>
+            ) : null}
+            <Button size="sm" loading={shareBusy} onClick={() => void createShareLink()}>
+              Create link
+            </Button>
+          </div>
+
+          {shares.length === 0 ? (
+            <p className="text-xs text-text-muted">No active share links yet.</p>
+          ) : (
+            <ul className="divide-y divide-border rounded-md border border-border">
+              {shares.map((share) => (
+                <li key={share.id} className="flex flex-wrap items-center justify-between gap-3 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-text">
+                      {share.access === "link"
+                        ? "Anyone with the link"
+                        : share.access === "domain"
+                          ? "Workspace domain"
+                          : "Password protected"}
+                    </p>
+                    <p className="text-xs text-text-muted">
+                      Created {new Date(share.createdAt).toLocaleDateString()}
+                      {share.revokedAt ? " · revoked" : ""}
+                      {share.expiresAt ? ` · expires ${new Date(share.expiresAt).toLocaleDateString()}` : ""}
+                    </p>
+                  </div>
+                  {!share.revokedAt ? (
+                    <Button variant="danger" size="sm" onClick={() => void revokeShareLink(share.id)}>
+                      Revoke
+                    </Button>
+                  ) : (
+                    <Badge tone="danger">Revoked</Badge>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </Dialog>
     </div>
   );
 }

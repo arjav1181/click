@@ -2,6 +2,7 @@ export * from "./schema";
 export { db, pool, withTenant, withAuth, isDatabaseConfigured, type TenantContext, type Tx } from "./client";
 export * as authRepo from "./repositories/auth";
 export * as chatRepo from "./repositories/chat";
+export * as sharingRepo from "./repositories/sharing";
 export * as developersRepo from "./repositories/developers";
 export * as meetingsRepo from "./repositories/meetings";
 export * as notesRepo from "./repositories/notes";

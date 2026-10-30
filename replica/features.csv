@@ -135,9 +135,9 @@ Follow-up email draft from the meeting,briefs,should,yes,no,P3
 Follow-up composer with attachments and undo,briefs,should,yes,no,P3
 Send via SMTP Gmail or Outlook,briefs,should,yes,no,P3
 Draft expiry and dismissal,briefs,should,yes,no,P3
-Private-by-default meetings,sharing,must,yes,no,P1
-Share to workspace domain or link,sharing,must,yes,no,P2
-Public recap page,sharing,must,yes,no,P2
+Private-by-default meetings,sharing,must,yes,yes,S23: meetings default to private; share links gate access to the recap
+Share to workspace domain or link,sharing,must,yes,yes,S23: POST /api/v1/meetings/[id]/shares creates link, domain or password-protected shares; GET lists them, DELETE revokes
+Public recap page,sharing,must,yes,yes,S25: /r/[token] renders the meeting notes and transcript for a valid, unexpired, unrevoked share; password prompt when needed
 Collaborator versus viewer roles,sharing,must,yes,no,P2
 Threaded comments,sharing,must,yes,no,P2
 Highlights,sharing,must,yes,no,P2

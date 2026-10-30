@@ -903,6 +903,49 @@ export async function askChat(
   );
 }
 
+export interface PublicShareRow {
+  id: string;
+  meetingId: string;
+  access: "link" | "domain" | "password";
+  expiresAt: string | null;
+  revokedAt: string | null;
+  createdBy: string | null;
+  createdByName: string | null;
+  createdAt: string;
+}
+
+export async function fetchShares(meetingId: string): Promise<ApiResult<{ shares: PublicShareRow[] }>> {
+  return apiFetch<{ shares: PublicShareRow[] }>(`/api/v1/meetings/${meetingId}/shares`);
+}
+
+export async function createShare(
+  meetingId: string,
+  input: { access: "link" | "domain" | "password"; password?: string; expiresAt?: string },
+): Promise<ApiResult<{ share: { id: string }; link: string; token: string }>> {
+  return apiFetch<{ share: { id: string }; link: string; token: string }>(
+    `/api/v1/meetings/${meetingId}/shares`,
+    { method: "POST", body: JSON.stringify(input) },
+  );
+}
+
+export async function revokeShare(meetingId: string, shareId: string): Promise<ApiResult<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>(`/api/v1/meetings/${meetingId}/shares/${shareId}`, { method: "DELETE" });
+}
+
+export interface PublicRecap {
+  meeting: { id: string; title: string; startedAt: string | null; durationSeconds: number; ownerName: string };
+  note: { rawMarkdown: string | null; sections: Array<{ id: string; title: string; body: string }> } | null;
+  transcript: Array<{ id: string; startMs: number; endMs: number; text: string; speakerName: string | null }>;
+}
+
+export async function fetchPublicRecap(
+  token: string,
+  password?: string,
+): Promise<ApiResult<PublicRecap>> {
+  const url = `/api/v1/public/shares/${token}${password ? `?password=${encodeURIComponent(password)}` : ""}`;
+  return apiFetch<PublicRecap>(url);
+}
+
 export interface AiFeatureGates {
   summaries: boolean;
   actionItems: boolean;
