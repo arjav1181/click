@@ -543,6 +543,65 @@ export async function deleteOrganization(ctx: TenantContext) {
   });
 }
 
+export interface RecordingPolicy {
+  autoJoinDefault: boolean;
+  botName: string;
+  consentNotice: string;
+  privateByDefault: boolean;
+}
+
+export const defaultRecordingPolicy: RecordingPolicy = {
+  autoJoinDefault: false,
+  botName: "Click bot",
+  consentNotice: "This meeting is being recorded and transcribed by Click.",
+  privateByDefault: true,
+};
+
+function readRecordingPolicy(settings: unknown): RecordingPolicy {
+  const raw = (settings ?? {}) as Record<string, unknown>;
+  const r = (raw.recording ?? {}) as Record<string, unknown>;
+  return {
+    autoJoinDefault: r.auto_join_default === true,
+    botName: typeof r.bot_name === "string" && r.bot_name ? r.bot_name.slice(0, 80) : "Click bot",
+    consentNotice:
+      typeof r.consent_notice === "string" && r.consent_notice
+        ? r.consent_notice.slice(0, 2000)
+        : defaultRecordingPolicy.consentNotice,
+    privateByDefault: r.private_by_default !== false,
+  };
+}
+
+export async function getRecordingPolicy(ctx: TenantContext): Promise<RecordingPolicy> {
+  return withTenant(ctx, async (tx) => {
+    const rows = await tx
+      .select({ settings: organizations.settings })
+      .from(organizations)
+      .where(eq(organizations.id, ctx.orgId))
+      .limit(1);
+    return readRecordingPolicy(rows[0]?.settings);
+  });
+}
+
+export async function updateRecordingPolicy(
+  ctx: TenantContext,
+  patch: Partial<RecordingPolicy>,
+): Promise<RecordingPolicy> {
+  const current = await getRecordingPolicy(ctx);
+  const next: RecordingPolicy = {
+    autoJoinDefault: patch.autoJoinDefault ?? current.autoJoinDefault,
+    botName: (patch.botName ?? current.botName).slice(0, 80),
+    consentNotice: (patch.consentNotice ?? current.consentNotice).slice(0, 2000),
+    privateByDefault: patch.privateByDefault ?? current.privateByDefault,
+  };
+  await patchSettings(ctx, "recording", {
+    auto_join_default: next.autoJoinDefault,
+    bot_name: next.botName,
+    consent_notice: next.consentNotice,
+    private_by_default: next.privateByDefault,
+  });
+  return next;
+}
+
 /**
  * Workspace AI policy. It lives in the organization settings blob so a
  * self-hosted install has one place to look for gates, defaults and the cap.
