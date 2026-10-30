@@ -4,6 +4,7 @@ export * as authRepo from "./repositories/auth";
 export * as chatRepo from "./repositories/chat";
 export * as sharingRepo from "./repositories/sharing";
 export * as speakersRepo from "./repositories/speakers";
+export * as vocabularyRepo from "./repositories/vocabulary";
 export * as developersRepo from "./repositories/developers";
 export * as integrationsRepo from "./repositories/integrations";
 export * as meetingsRepo from "./repositories/meetings";
