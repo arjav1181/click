@@ -1382,6 +1382,38 @@ export async function fetchRetention(): Promise<ApiResult<{ policy: RetentionPol
   return apiFetch<{ policy: RetentionPolicy }>("/api/v1/retention");
 }
 
+export async function fetchBotNotice(): Promise<ApiResult<{ notice: string }>> {
+  return apiFetch<{ notice: string }>("/api/v1/bot/notice");
+}
+
+export async function updateBotNotice(notice: string): Promise<ApiResult<{ notice: string }>> {
+  return apiFetch<{ notice: string }>("/api/v1/bot/notice", {
+    method: "PUT",
+    body: JSON.stringify({ notice }),
+  });
+}
+
+export interface BotJobRow {
+  id: string;
+  meetingId: string;
+  meetingTitle: string;
+  provider: string;
+  meetingUrl: string;
+  botName: string;
+  state: string;
+  attempts: number;
+  lobbyReason: string | null;
+  errorCode: string | null;
+  scheduledAt: string;
+  startedAt: string | null;
+  endedAt: string | null;
+  createdAt: string;
+}
+
+export async function fetchBotJobs(): Promise<ApiResult<{ jobs: BotJobRow[] }>> {
+  return apiFetch<{ jobs: BotJobRow[] }>("/api/v1/bot-jobs");
+}
+
 export interface BriefBullet {
   text: string;
   sourceMeetingId?: string;

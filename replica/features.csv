@@ -37,10 +37,10 @@ Send bot to a meeting link on demand,bot,must,yes,yes,S62: /app/meetings/[id]/bo
 Auto-join from calendar events,bot,must,yes,no,P1
 Bot display name and avatar configuration,bot,must,yes,no,P1
 Lobby and waiting-room handling with host admit,bot,should,yes,no,P1
-Consent notice posted in meeting chat,bot,must,yes,no,P1; stricter than originals
+Consent notice posted in meeting chat,bot,must,yes,partial,S63: /bot/notice edits the message the bot posts over GET/PUT /api/v1/bot/notice; posting to the external chat not built
 Bot posts live transcript link at meeting start,bot,must,yes,no,P1
 Bot posts summary and action items before meeting end,bot,should,yes,no,P2
-Bot retry and failure console,bot,must,yes,partial,P1; retry endpoint and bot console UI exist, provider client not built
+Bot retry and failure console,bot,must,yes,partial,S61: /bot/console lists bot jobs with state, lobby reason and errors over GET /api/v1/bot-jobs; retry action not built
 No-show and failed-join alert to the meeting owner,bot,must,yes,no,P1
 Desktop capture of system audio and microphone,botless,must,yes,no,P0
 Desktop meeting detection and start prompt,botless,must,yes,no,P1
@@ -79,7 +79,7 @@ Merge duplicate speakers,speakers,must,yes,yes,S48: POST /api/v1/speakers/merge 
 Workspace speaker directory,speakers,should,yes,no,P2; Otter shared speakers
 Custom vocabulary for names and jargon,speakers,must,yes,yes,S49: GET/POST /api/v1/vocabulary and DELETE /api/v1/vocabulary/[id] with personal or workspace scope and name/term/acronym kinds
 Bulk vocabulary import,speakers,could,no,no,P3
-Live transcript panel during capture,live,must,yes,no,P1
+Live transcript panel during capture,live,must,yes,partial,S09: /app/meetings/[id]/live shows the live transcript and capture status; timer, stop control and audio meter not built
 Live raw notes during the call,live,must,yes,no,P0
 In-meeting AI questions,live,must,yes,no,P2
 Suggested questions during a meeting,live,could,yes,no,P2

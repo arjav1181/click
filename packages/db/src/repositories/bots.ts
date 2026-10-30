@@ -1,6 +1,64 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { withAuth, withTenant, type TenantContext } from "../client";
 import { botJobs, meetings } from "../schema";
+
+export interface BotJobRow {
+  id: string;
+  meetingId: string;
+  meetingTitle: string;
+  provider: string;
+  meetingUrl: string;
+  botName: string;
+  state: string;
+  attempts: number;
+  lobbyReason: string | null;
+  errorCode: string | null;
+  scheduledAt: string;
+  startedAt: string | null;
+  endedAt: string | null;
+  createdAt: string;
+}
+
+export async function listBotJobs(ctx: TenantContext): Promise<BotJobRow[]> {
+  return withTenant(ctx, async (tx) => {
+    const rows = await tx
+      .select({
+        id: botJobs.id,
+        meetingId: botJobs.meetingId,
+        meetingTitle: sql<string>`coalesce((select m.title from meetings m where m.id = ${botJobs.meetingId}), 'Meeting')`,
+        provider: botJobs.provider,
+        meetingUrl: botJobs.meetingUrl,
+        botName: botJobs.botName,
+        state: botJobs.state,
+        attempts: botJobs.attempts,
+        lobbyReason: botJobs.lobbyReason,
+        errorCode: botJobs.errorCode,
+        scheduledAt: botJobs.scheduledAt,
+        startedAt: botJobs.startedAt,
+        endedAt: botJobs.endedAt,
+        createdAt: botJobs.createdAt,
+      })
+      .from(botJobs)
+      .where(eq(botJobs.orgId, ctx.orgId))
+      .orderBy(desc(botJobs.createdAt));
+    return rows.map((row) => ({
+      id: row.id,
+      meetingId: row.meetingId,
+      meetingTitle: row.meetingTitle,
+      provider: row.provider,
+      meetingUrl: row.meetingUrl,
+      botName: row.botName,
+      state: row.state,
+      attempts: row.attempts,
+      lobbyReason: row.lobbyReason,
+      errorCode: row.errorCode,
+      scheduledAt: row.scheduledAt.toISOString(),
+      startedAt: row.startedAt?.toISOString() ?? null,
+      endedAt: row.endedAt?.toISOString() ?? null,
+      createdAt: row.createdAt.toISOString(),
+    }));
+  });
+}
 
 export async function findBotJob(id: string) {
   return withAuth(async (tx) => {
