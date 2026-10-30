@@ -114,9 +114,11 @@ export default function MeetingWorkspacePage() {
           <Button variant="secondary" size="sm">
             Share
           </Button>
-          <Button variant="ghost" size="sm">
-            Export
-          </Button>
+          <Link href={`/app/export?meeting=${id}`}>
+            <Button variant="ghost" size="sm">
+              Export
+            </Button>
+          </Link>
         </div>
       </div>
 
