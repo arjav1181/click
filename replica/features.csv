@@ -175,7 +175,7 @@ Snowflake or S3 warehouse export,integrations,could,yes,no,P5
 Calendar and email provider integrations,integrations,must,yes,yes,S44: integration hub over GET/POST /api/v1/integrations and DELETE /api/v1/integrations/[key] with category tabs, search and connect/disconnect
 REST API with scoped keys,api,must,yes,yes,S45: GET/POST /api/v1/api-keys and DELETE /api/v1/api-keys/[id] to create, list and revoke scoped keys; the raw key is shown once
 Webhooks with signing and retries,api,must,yes,yes,S45: GET/POST /api/v1/webhooks, PATCH/DELETE /api/v1/webhooks/[id] and GET /api/v1/webhooks/[id]/deliveries for endpoints, delivery log and status
-MCP server for external AI clients,api,should,yes,no,P4
+MCP server for external AI clients,api,should,yes,yes,S46: /app/developers/mcp documents the endpoint, available tools, and client snippets for Claude Desktop, Cursor and generic MCP clients
 GraphQL read API,api,could,yes,no,P5; Fireflies GraphQL
 Rate limits and quotas,api,should,yes,yes,should; done in replica-backend: rateLimit helper applied to auth endpoints
 API documentation and OpenAPI spec,api,must,yes,no,P1; route inventory in replica/backend.md, OpenAPI not generated
