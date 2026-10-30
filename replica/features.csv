@@ -121,10 +121,10 @@ Manual task creation,actions,should,yes,no,P2
 Keyword search across meetings,search,must,yes,yes,P0; done in replica-backend: tsvector plus trigram search over transcript segments
 Filter by speaker date folder channel and language,search,must,yes,partial,P1; search accepts speaker and date filters
 Semantic search over transcripts and notes,search,must,yes,partial,P1; embeddings job and search route exist, needs pgvector
-Ask AI across all meetings,search,must,yes,partial,P0; search API and UI exist, cross-meeting chat model not wired
-Scoped chat over a meeting folder channel person or selection,search,must,yes,no,P3
-Citations in chat answers,search,must,yes,partial,P0; citation rows exist and are returned by the notes API
-Chat history,search,must,yes,no,P3
+Ask AI across all meetings,search,must,yes,yes,S37: /app/ask with thread list, scope picker and citation chips over /api/v1/chat/threads and /api/v1/chat/threads/[id]/messages, backed by the LLM chat provider
+Scoped chat over a meeting folder channel person or selection,search,must,yes,partial,S37: folder and channel scopes resolve to their meetings; person, company and selection scopes are still missing
+Citations in chat answers,search,must,yes,yes,S37: assistant messages store citation chips linking back to the meeting and timestamp
+Chat history,search,must,yes,yes,S37: threads and messages persist per user in chat_threads and chat_messages
 Chat and Work modes (answer versus artifact),search,could,yes,no,P5; Otter
 Model selection for chat,search,should,yes,no,P3
 Suggested follow-up questions,search,should,yes,no,P3
