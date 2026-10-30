@@ -543,6 +543,67 @@ export async function deleteOrganization(ctx: TenantContext) {
   });
 }
 
+export interface NotificationPrefs {
+  digest: boolean;
+  mentions: boolean;
+  followUps: boolean;
+  reminders: boolean;
+  quietHours: boolean;
+}
+
+export const defaultNotificationPrefs: NotificationPrefs = {
+  digest: true,
+  mentions: true,
+  followUps: true,
+  reminders: true,
+  quietHours: false,
+};
+
+function readNotificationPrefs(settings: unknown): NotificationPrefs {
+  const raw = (settings ?? {}) as Record<string, unknown>;
+  const n = (raw.notifications ?? {}) as Record<string, unknown>;
+  return {
+    digest: n.digest !== false,
+    mentions: n.mentions !== false,
+    followUps: n.follow_ups !== false,
+    reminders: n.reminders !== false,
+    quietHours: n.quiet_hours === true,
+  };
+}
+
+export async function getNotificationPrefs(ctx: TenantContext): Promise<NotificationPrefs> {
+  return withTenant(ctx, async (tx) => {
+    const rows = await tx
+      .select({ settings: organizations.settings })
+      .from(organizations)
+      .where(eq(organizations.id, ctx.orgId))
+      .limit(1);
+    return readNotificationPrefs(rows[0]?.settings);
+  });
+}
+
+export async function updateNotificationPrefs(
+  ctx: TenantContext,
+  patch: Partial<NotificationPrefs>,
+): Promise<NotificationPrefs> {
+  const current = await getNotificationPrefs(ctx);
+  const next: NotificationPrefs = {
+    digest: patch.digest ?? current.digest,
+    mentions: patch.mentions ?? current.mentions,
+    followUps: patch.followUps ?? current.followUps,
+    reminders: patch.reminders ?? current.reminders,
+    quietHours: patch.quietHours ?? current.quietHours,
+  };
+  await patchSettings(ctx, "notifications", {
+    digest: next.digest,
+    mentions: next.mentions,
+    follow_ups: next.followUps,
+    reminders: next.reminders,
+    quiet_hours: next.quietHours,
+  });
+  return next;
+}
+
 export interface RecordingPolicy {
   autoJoinDefault: boolean;
   botName: string;
