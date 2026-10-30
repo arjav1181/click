@@ -582,6 +582,68 @@ export async function getRecordingPolicy(ctx: TenantContext): Promise<RecordingP
   });
 }
 
+export interface ConsentPolicy {
+  recordingNotice: string;
+  watermark: boolean;
+  chatMessage: string;
+  adminLocked: boolean;
+}
+
+export const defaultConsentPolicy: ConsentPolicy = {
+  recordingNotice: "This meeting is being recorded and transcribed.",
+  watermark: false,
+  chatMessage: "A recording bot has joined this meeting.",
+  adminLocked: false,
+};
+
+function readConsentPolicy(settings: unknown): ConsentPolicy {
+  const raw = (settings ?? {}) as Record<string, unknown>;
+  const c = (raw.consent ?? {}) as Record<string, unknown>;
+  return {
+    recordingNotice:
+      typeof c.recording_notice === "string" && c.recording_notice
+        ? c.recording_notice.slice(0, 2000)
+        : defaultConsentPolicy.recordingNotice,
+    watermark: c.watermark === true,
+    chatMessage:
+      typeof c.chat_message === "string" && c.chat_message
+        ? c.chat_message.slice(0, 2000)
+        : defaultConsentPolicy.chatMessage,
+    adminLocked: c.admin_locked === true,
+  };
+}
+
+export async function getConsentPolicy(ctx: TenantContext): Promise<ConsentPolicy> {
+  return withTenant(ctx, async (tx) => {
+    const rows = await tx
+      .select({ settings: organizations.settings })
+      .from(organizations)
+      .where(eq(organizations.id, ctx.orgId))
+      .limit(1);
+    return readConsentPolicy(rows[0]?.settings);
+  });
+}
+
+export async function updateConsentPolicy(
+  ctx: TenantContext,
+  patch: Partial<ConsentPolicy>,
+): Promise<ConsentPolicy> {
+  const current = await getConsentPolicy(ctx);
+  const next: ConsentPolicy = {
+    recordingNotice: (patch.recordingNotice ?? current.recordingNotice).slice(0, 2000),
+    watermark: patch.watermark ?? current.watermark,
+    chatMessage: (patch.chatMessage ?? current.chatMessage).slice(0, 2000),
+    adminLocked: patch.adminLocked ?? current.adminLocked,
+  };
+  await patchSettings(ctx, "consent", {
+    recording_notice: next.recordingNotice,
+    watermark: next.watermark,
+    chat_message: next.chatMessage,
+    admin_locked: next.adminLocked,
+  });
+  return next;
+}
+
 export async function updateRecordingPolicy(
   ctx: TenantContext,
   patch: Partial<RecordingPolicy>,

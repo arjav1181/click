@@ -185,7 +185,7 @@ Desktop application for macOS and Windows,clients,must,yes,no,P1
 Browser extension for Chrome and Chromium,clients,must,yes,no,P4
 Mobile apps for iOS and Android,clients,should,yes,no,P4
 Apple Watch and home-screen widgets,clients,could,yes,no,P5
-Consent record stored per meeting,security,must,yes,yes,P0; done in replica-backend: consent_records and the consent endpoint
+Consent record stored per meeting,security,must,yes,yes,S50: /settings/privacy with recording notice, watermark, chat message and admin lock over GET/PUT /api/v1/consent; per-meeting consent records already exist
 Recording indicator on every capture surface,security,must,yes,no,P0
 Transcript-only mode with zero audio retention,security,must,yes,no,P1; Granola
 Encryption at rest and in transit,security,must,yes,partial,P0; AES-256-GCM for stored secrets, TLS termination is the operator job
