@@ -699,6 +699,61 @@ export async function exportMeetings(
   );
 }
 
+export interface TemplateSection {
+  key: string;
+  title: string;
+}
+
+export interface TemplateRow {
+  id: string;
+  name: string;
+  description: string;
+  prompt: string;
+  sections: TemplateSection[];
+  scope: string;
+  isBuiltin: boolean;
+  ownerId: string | null;
+  ownerName: string | null;
+  updatedAt: string;
+}
+
+export async function fetchTemplates(): Promise<ApiResult<{ templates: TemplateRow[] }>> {
+  return apiFetch<{ templates: TemplateRow[] }>("/api/v1/templates");
+}
+
+export async function createTemplate(input: {
+  name: string;
+  description?: string;
+  prompt?: string;
+  sections?: TemplateSection[];
+  scope: "personal" | "workspace";
+}): Promise<ApiResult<{ template: TemplateRow }>> {
+  return apiFetch<{ template: TemplateRow }>("/api/v1/templates", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateTemplate(
+  id: string,
+  patch: {
+    name?: string;
+    description?: string | null;
+    prompt?: string | null;
+    sections?: TemplateSection[];
+    scope?: "personal" | "workspace";
+  },
+): Promise<ApiResult<{ template: TemplateRow | null }>> {
+  return apiFetch<{ template: TemplateRow | null }>(`/api/v1/templates/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function deleteTemplate(id: string): Promise<ApiResult<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>(`/api/v1/templates/${id}`, { method: "DELETE" });
+}
+
 export interface AiFeatureGates {
   summaries: boolean;
   actionItems: boolean;
