@@ -1097,6 +1097,35 @@ export async function fetchLegalHolds(): Promise<ApiResult<{ holds: LegalHoldRow
   return apiFetch<{ holds: LegalHoldRow[] }>("/api/v1/legal-hold");
 }
 
+export interface PersonRow {
+  id: string;
+  name: string;
+  email: string | null;
+  title: string | null;
+  companyId: string | null;
+  companyName: string | null;
+  avatarUrl: string | null;
+  meetingCount: number;
+}
+
+export interface CompanyRow {
+  id: string;
+  name: string;
+  domain: string | null;
+  peopleCount: number;
+  meetingCount: number;
+}
+
+export async function fetchPeople(q?: string): Promise<ApiResult<{ people: PersonRow[] }>> {
+  const url = q ? `/api/v1/people?q=${encodeURIComponent(q)}` : "/api/v1/people";
+  return apiFetch<{ people: PersonRow[] }>(url);
+}
+
+export async function fetchCompanies(q?: string): Promise<ApiResult<{ companies: CompanyRow[] }>> {
+  const url = q ? `/api/v1/companies?q=${encodeURIComponent(q)}` : "/api/v1/companies";
+  return apiFetch<{ companies: CompanyRow[] }>(url);
+}
+
 export interface RecipeRow {
   id: string;
   name: string;

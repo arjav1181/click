@@ -13,6 +13,7 @@ export * as groupsRepo from "./repositories/groups";
 export * as recipesRepo from "./repositories/recipes";
 export * as integrationsRepo from "./repositories/integrations";
 export * as legalHoldRepo from "./repositories/legal-hold";
+export * as peopleRepo from "./repositories/people";
 export * as meetingsRepo from "./repositories/meetings";
 export * as notesRepo from "./repositories/notes";
 export * as searchRepo from "./repositories/search";
