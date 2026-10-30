@@ -1042,6 +1042,27 @@ export async function deleteVocabularyTerm(id: string): Promise<ApiResult<{ ok: 
   return apiFetch<{ ok: boolean }>(`/api/v1/vocabulary/${id}`, { method: "DELETE" });
 }
 
+export interface RetentionPolicy {
+  transcriptDays: number | null;
+  audioDays: number | null;
+  recordingMode: "audio" | "audio_video" | "transcript_only";
+  legalHoldOverride: boolean;
+  updatedAt: string | null;
+}
+
+export async function fetchRetention(): Promise<ApiResult<{ policy: RetentionPolicy }>> {
+  return apiFetch<{ policy: RetentionPolicy }>("/api/v1/retention");
+}
+
+export async function updateRetention(
+  patch: Partial<Omit<RetentionPolicy, "updatedAt">>,
+): Promise<ApiResult<{ policy: RetentionPolicy }>> {
+  return apiFetch<{ policy: RetentionPolicy }>("/api/v1/retention", {
+    method: "PUT",
+    body: JSON.stringify(patch),
+  });
+}
+
 export interface AiFeatureGates {
   summaries: boolean;
   actionItems: boolean;
