@@ -74,8 +74,8 @@ Low-confidence transcript flagging,transcription,should,no,no,P3
 Speaker diarization (who spoke when),speakers,must,yes,partial,P1; provider speakers map to the speakers table, quality depends on the ASR provider
 Named speaker attribution from calendar attendees,speakers,must,yes,no,P1
 Me versus Them fallback labels,speakers,must,yes,partial,P1; speakers.isMe and speakerIsMe in the API, fallback naming not finished
-Rename speakers,speakers,must,yes,no,P1
-Merge duplicate speakers,speakers,must,yes,no,P2; Otter
+Rename speakers,speakers,must,yes,yes,S48: PATCH /api/v1/speakers/[id] renames a speaker across all transcripts
+Merge duplicate speakers,speakers,must,yes,yes,S48: POST /api/v1/speakers/merge reassigns segments and marks the source as merged
 Workspace speaker directory,speakers,should,yes,no,P2; Otter shared speakers
 Custom vocabulary for names and jargon,speakers,must,yes,no,P1
 Bulk vocabulary import,speakers,could,no,no,P3
