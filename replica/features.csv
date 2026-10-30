@@ -150,8 +150,8 @@ Folders,organization,must,yes,yes,P0; S27: folder tree, create folder and space,
 Spaces for personal team and custom grouping,organization,should,yes,yes,P0; spaces table with personal, team and custom kinds plus GET and POST /api/v1/spaces
 Channels with channel-scoped chat,organization,should,yes,partial,P0; S26 channels list and detail: meetings, members, archive, private/public. Channel chat not built
 Auto-add recurring meetings to a folder,organization,should,yes,no,P2
-People directory built from meetings,organization,must,yes,no,P2
-Company directory,organization,should,yes,no,P3
+People directory built from meetings,organization,must,yes,yes,S28: /app/people lists people with meeting counts over GET /api/v1/people
+Company directory,organization,should,yes,yes,S29: /app/companies lists companies with people and meeting counts over GET /api/v1/companies
 Tags,organization,should,yes,no,P2
 Trash and restore,organization,must,yes,yes,P0; done in replica-backend: soft delete plus POST /api/v1/meetings/[id]/restore
 Bulk move and delete,organization,must,yes,no,P2
