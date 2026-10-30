@@ -541,6 +541,87 @@ export async function updateProfile(patch: {
   });
 }
 
+export interface WorkspaceDefaults {
+  autoSummarize: boolean;
+  defaultLanguage: string;
+  defaultPrivacy: "private" | "workspace";
+}
+
+export interface WorkspaceOrg {
+  id: string;
+  name: string;
+  slug: string;
+  logoUrl: string | null;
+  domainAllowlist: string[];
+  createdAt: string;
+}
+
+export interface WorkspaceDto {
+  org: WorkspaceOrg | null;
+  defaults: WorkspaceDefaults;
+  role: "owner" | "admin" | "member";
+  counts: { members: number; active: number };
+}
+
+export async function fetchOrg(): Promise<ApiResult<WorkspaceDto>> {
+  return apiFetch<WorkspaceDto>("/api/v1/org");
+}
+
+export async function updateOrg(patch: {
+  name?: string;
+  logoUrl?: string | null;
+}): Promise<ApiResult<{ org: WorkspaceOrg | null }>> {
+  return apiFetch<{ org: WorkspaceOrg | null }>("/api/v1/org", {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function updateOrgDefaults(
+  patch: Partial<WorkspaceDefaults>,
+): Promise<ApiResult<{ defaults: WorkspaceDefaults }>> {
+  return apiFetch<{ defaults: WorkspaceDefaults }>("/api/v1/org", {
+    method: "PUT",
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function addOrgDomain(
+  domain: string,
+): Promise<ApiResult<{ domainAllowlist: string[] }>> {
+  return apiFetch<{ domainAllowlist: string[] }>("/api/v1/org/domains", {
+    method: "POST",
+    body: JSON.stringify({ domain }),
+  });
+}
+
+export async function removeOrgDomain(
+  domain: string,
+): Promise<ApiResult<{ domainAllowlist: string[] }>> {
+  return apiFetch<{ domainAllowlist: string[] }>(
+    `/api/v1/org/domains?domain=${encodeURIComponent(domain)}`,
+    { method: "DELETE" },
+  );
+}
+
+export async function transferOrgOwnership(
+  userId: string,
+): Promise<ApiResult<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>("/api/v1/org/ownership", {
+    method: "POST",
+    body: JSON.stringify({ userId }),
+  });
+}
+
+export async function deleteOrg(
+  confirmName: string,
+): Promise<ApiResult<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>("/api/v1/org", {
+    method: "DELETE",
+    body: JSON.stringify({ confirmName }),
+  });
+}
+
 export interface AiFeatureGates {
   summaries: boolean;
   actionItems: boolean;

@@ -1,5 +1,5 @@
 import { and, asc, eq, sql } from "drizzle-orm";
-import { withTenant, type TenantContext } from "../client";
+import { withAuth, withTenant, type TenantContext } from "../client";
 import {
   actionItems,
   auditEvents,
@@ -354,6 +354,196 @@ export async function updateOrganization(
 }
 
 /**
+ * Workspace defaults. They sit next to the AI policy in the organization
+ * settings blob, so one JSON document holds every workspace-wide knob.
+ */
+export interface WorkspaceDefaults {
+  /** Generate AI notes as soon as a transcript is ready. */
+  autoSummarize: boolean;
+  /** Language assumed for new meetings. */
+  defaultLanguage: string;
+  /** Visibility new meetings start with. */
+  defaultPrivacy: "private" | "workspace";
+}
+
+export const defaultWorkspaceDefaults: WorkspaceDefaults = {
+  autoSummarize: true,
+  defaultLanguage: "en",
+  defaultPrivacy: "private",
+};
+
+function readDefaults(settings: unknown): WorkspaceDefaults {
+  const raw = (settings ?? {}) as Record<string, unknown>;
+  const defaults = (raw.defaults ?? {}) as Record<string, unknown>;
+  return {
+    autoSummarize: defaults.auto_summarize !== false,
+    defaultLanguage:
+      typeof defaults.default_language === "string" && defaults.default_language
+        ? defaults.default_language
+        : "en",
+    defaultPrivacy: defaults.default_privacy === "workspace" ? "workspace" : "private",
+  };
+}
+
+/**
+ * Rewrites one key of the settings blob and keeps the rest. The blob is
+ * shared by the AI policy and the workspace defaults, so a full replace would
+ * drop whichever half was not part of the write.
+ */
+async function patchSettings(
+  ctx: TenantContext,
+  key: string,
+  value: unknown,
+): Promise<void> {
+  await withTenant(ctx, async (tx) => {
+    const rows = await tx
+      .select({ settings: organizations.settings })
+      .from(organizations)
+      .where(eq(organizations.id, ctx.orgId))
+      .limit(1);
+    const current = (rows[0]?.settings ?? {}) as Record<string, unknown>;
+    await tx
+      .update(organizations)
+      .set({ settings: { ...current, [key]: value }, updatedAt: new Date() })
+      .where(eq(organizations.id, ctx.orgId));
+  });
+}
+
+export async function getWorkspaceDefaults(ctx: TenantContext): Promise<WorkspaceDefaults> {
+  return withTenant(ctx, async (tx) => {
+    const rows = await tx
+      .select({ settings: organizations.settings })
+      .from(organizations)
+      .where(eq(organizations.id, ctx.orgId))
+      .limit(1);
+    return readDefaults(rows[0]?.settings);
+  });
+}
+
+export async function updateWorkspaceDefaults(
+  ctx: TenantContext,
+  patch: Partial<WorkspaceDefaults>,
+): Promise<WorkspaceDefaults> {
+  const current = await getWorkspaceDefaults(ctx);
+  const next: WorkspaceDefaults = {
+    autoSummarize: patch.autoSummarize ?? current.autoSummarize,
+    defaultLanguage: (patch.defaultLanguage ?? current.defaultLanguage).slice(0, 20),
+    defaultPrivacy: patch.defaultPrivacy ?? current.defaultPrivacy,
+  };
+  await patchSettings(ctx, "defaults", {
+    auto_summarize: next.autoSummarize,
+    default_language: next.defaultLanguage,
+    default_privacy: next.defaultPrivacy,
+  });
+  return next;
+}
+
+/**
+ * Finds the workspace that claims an email domain, across every workspace.
+ * The lookup has to cross tenant lines, so it runs as the auth role.
+ */
+export async function findOrgByDomain(domain: string, excludeOrgId?: string) {
+  return withAuth(async (tx) => {
+    const rows = await tx
+      .select({ id: organizations.id, name: organizations.name, slug: organizations.slug })
+      .from(organizations)
+      .where(sql`${organizations.domainAllowlist} @> ARRAY[${domain.toLowerCase()}]::text[]`)
+      .limit(5);
+    // Another workspace claiming the domain is a conflict; the workspace that
+    // already owns it is not.
+    const other = rows.find((row) => row.id !== excludeOrgId);
+    return other ?? null;
+  });
+}
+
+/** Adds one auto-join domain. Returns false when another workspace owns it. */
+export async function addDomainAllowlist(
+  ctx: TenantContext,
+  domain: string,
+): Promise<
+  { ok: true; alreadyPresent: boolean } | { ok: false; reason: "conflict"; conflictWith: string } | { ok: false; reason: "too_many" }
+> {
+  const clean = domain.trim().toLowerCase();
+  const owner = await findOrgByDomain(clean, ctx.orgId);
+  if (owner) return { ok: false, reason: "conflict", conflictWith: owner.name };
+
+  return withTenant(ctx, async (tx) => {
+    const rows = await tx
+      .select({ allowlist: organizations.domainAllowlist })
+      .from(organizations)
+      .where(eq(organizations.id, ctx.orgId))
+      .limit(1);
+    const current = rows[0]?.allowlist ?? [];
+    if (current.includes(clean)) return { ok: true, alreadyPresent: true };
+    if (current.length >= 50) return { ok: false, reason: "too_many" };
+    await tx
+      .update(organizations)
+      .set({ domainAllowlist: [...current, clean], updatedAt: new Date() })
+      .where(eq(organizations.id, ctx.orgId));
+    return { ok: true, alreadyPresent: false };
+  });
+}
+
+export async function removeDomainAllowlist(ctx: TenantContext, domain: string) {
+  const clean = domain.trim().toLowerCase();
+  return withTenant(ctx, async (tx) => {
+    const rows = await tx
+      .select({ allowlist: organizations.domainAllowlist })
+      .from(organizations)
+      .where(eq(organizations.id, ctx.orgId))
+      .limit(1);
+    const current = rows[0]?.allowlist ?? [];
+    await tx
+      .update(organizations)
+      .set({
+        domainAllowlist: current.filter((entry) => entry !== clean),
+        updatedAt: new Date(),
+      })
+      .where(eq(organizations.id, ctx.orgId));
+    return true;
+  });
+}
+
+/**
+ * Hands the workspace to another active member. The current owner becomes an
+ * admin so the workspace never ends up without an owner.
+ */
+export async function transferOwnership(ctx: TenantContext, targetUserId: string) {
+  return withTenant(ctx, async (tx) => {
+    const target = await tx
+      .select({ id: memberships.id })
+      .from(memberships)
+      .where(
+        and(
+          eq(memberships.orgId, ctx.orgId),
+          eq(memberships.userId, targetUserId),
+          eq(memberships.status, "active"),
+        ),
+      )
+      .limit(1);
+    if (!target[0]) return { ok: false as const, reason: "not_found" as const };
+
+    await tx
+      .update(memberships)
+      .set({ role: "owner", updatedAt: new Date() })
+      .where(and(eq(memberships.orgId, ctx.orgId), eq(memberships.userId, targetUserId)));
+    await tx
+      .update(memberships)
+      .set({ role: "admin", updatedAt: new Date() })
+      .where(and(eq(memberships.orgId, ctx.orgId), eq(memberships.userId, ctx.userId)));
+    return { ok: true as const };
+  });
+}
+
+/** Deletes the workspace. Every tenant table cascades from the org row. */
+export async function deleteOrganization(ctx: TenantContext) {
+  return withTenant(ctx, async (tx) => {
+    await tx.delete(organizations).where(eq(organizations.id, ctx.orgId));
+    return true;
+  });
+}
+
+/**
  * Workspace AI policy. It lives in the organization settings blob so a
  * self-hosted install has one place to look for gates, defaults and the cap.
  */
@@ -438,7 +628,11 @@ export async function updateAiPolicy(
       featureGates: { ...current.featureGates, ...(patch.featureGates ?? {}) },
       modelDefaults: { ...current.modelDefaults, ...(patch.modelDefaults ?? {}) },
     };
+    // The blob also carries the workspace defaults, so only the AI keys are
+    // replaced.
+    const existing = (rows[0]?.settings ?? {}) as Record<string, unknown>;
     const settings = {
+      ...existing,
       ai_budget_cap: next.budgetCap,
       feature_gates: {
         summaries: next.featureGates.summaries,
