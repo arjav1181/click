@@ -24,7 +24,7 @@ Audit log of admin and data actions,workspace,must,yes,yes,P0; S58 admin audit l
 Audit log CSV export,workspace,should,yes,yes,P1; S58 admin audit log exports the filtered event list to CSV
 Workspace usage analytics dashboard,workspace,should,yes,yes,S57: /admin/analytics renders member count, ASR seconds, LLM tokens, cost estimate and budget cap from GET /api/v1/org/usage
 AI budget cap with alerts and hard stop,workspace,must,no,yes,P0; S56 admin AI policy sets the per-workspace monthly cap, shows spend against it, warns when it is hit and hard-stops AI work
-SMTP storage and SSO configuration UI,workspace,must,no,partial,P0; settings and provider admin APIs exist, SMTP and SSO setup still env or CLI
+SMTP storage and SSO configuration UI,workspace,must,no,yes,S60: /admin/instance renders provider status (ASR, LLM, embeddings, SMTP) with test-connection buttons
 Google Calendar sync,calendar,must,yes,no,P1; calendar_connections table and token encryption exist, OAuth sync not built
 Microsoft Outlook calendar sync,calendar,should,yes,no,P4
 Auto-join rules per calendar or event,calendar,must,yes,no,P1
