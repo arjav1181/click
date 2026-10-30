@@ -986,6 +986,34 @@ export async function fetchPublicRecap(
   return apiFetch<PublicRecap>(url);
 }
 
+export interface SpeakerRow {
+  id: string;
+  name: string | null;
+  email: string | null;
+  isMe: boolean;
+  mergedIntoId: string | null;
+  meetingCount: number;
+  segmentCount: number;
+}
+
+export async function fetchSpeakers(): Promise<ApiResult<{ speakers: SpeakerRow[] }>> {
+  return apiFetch<{ speakers: SpeakerRow[] }>("/api/v1/speakers");
+}
+
+export async function renameSpeaker(id: string, name: string): Promise<ApiResult<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>(`/api/v1/speakers/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function mergeSpeakers(sourceId: string, targetId: string): Promise<ApiResult<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>("/api/v1/speakers/merge", {
+    method: "POST",
+    body: JSON.stringify({ sourceId, targetId }),
+  });
+}
+
 export interface AiFeatureGates {
   summaries: boolean;
   actionItems: boolean;
