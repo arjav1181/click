@@ -1374,6 +1374,27 @@ export async function fetchRetention(): Promise<ApiResult<{ policy: RetentionPol
   return apiFetch<{ policy: RetentionPolicy }>("/api/v1/retention");
 }
 
+export interface NotificationPrefs {
+  digest: boolean;
+  mentions: boolean;
+  followUps: boolean;
+  reminders: boolean;
+  quietHours: boolean;
+}
+
+export async function fetchNotificationPrefs(): Promise<ApiResult<{ prefs: NotificationPrefs }>> {
+  return apiFetch<{ prefs: NotificationPrefs }>("/api/v1/notifications");
+}
+
+export async function updateNotificationPrefs(
+  patch: Partial<NotificationPrefs>,
+): Promise<ApiResult<{ prefs: NotificationPrefs }>> {
+  return apiFetch<{ prefs: NotificationPrefs }>("/api/v1/notifications", {
+    method: "PUT",
+    body: JSON.stringify(patch),
+  });
+}
+
 export interface CalendarConnectionRow {
   id: string;
   provider: "google" | "microsoft";
