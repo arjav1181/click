@@ -839,6 +839,70 @@ export async function fetchWebhookDeliveries(
   return apiFetch<{ deliveries: WebhookDeliveryRow[] }>(`/api/v1/webhooks/${id}/deliveries`);
 }
 
+export interface ChatThreadRow {
+  id: string;
+  title: string | null;
+  scope: string;
+  scopeIds: string[];
+  mode: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChatCitation {
+  meetingId: string;
+  segmentId: string | null;
+  quote: string;
+  label: string;
+}
+
+export interface ChatMessageRow {
+  id: string;
+  role: "user" | "assistant" | "tool" | "system";
+  content: string;
+  model: string | null;
+  tokensIn: number;
+  tokensOut: number;
+  citations: ChatCitation[];
+  createdAt: string;
+}
+
+export async function fetchChatThreads(): Promise<ApiResult<{ threads: ChatThreadRow[] }>> {
+  return apiFetch<{ threads: ChatThreadRow[] }>("/api/v1/chat/threads");
+}
+
+export async function createChatThread(input: {
+  title?: string;
+  scope?: string;
+  scopeIds?: string[];
+  mode?: "chat" | "work";
+}): Promise<ApiResult<{ thread: ChatThreadRow }>> {
+  return apiFetch<{ thread: ChatThreadRow }>("/api/v1/chat/threads", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function fetchChatThread(
+  id: string,
+): Promise<ApiResult<{ thread: ChatThreadRow; messages: ChatMessageRow[] }>> {
+  return apiFetch<{ thread: ChatThreadRow; messages: ChatMessageRow[] }>(`/api/v1/chat/threads/${id}`);
+}
+
+export async function deleteChatThread(id: string): Promise<ApiResult<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>(`/api/v1/chat/threads/${id}`, { method: "DELETE" });
+}
+
+export async function askChat(
+  threadId: string,
+  content: string,
+): Promise<ApiResult<{ message: ChatMessageRow; citations: ChatCitation[] }>> {
+  return apiFetch<{ message: ChatMessageRow; citations: ChatCitation[] }>(
+    `/api/v1/chat/threads/${threadId}/messages`,
+    { method: "POST", body: JSON.stringify({ content }) },
+  );
+}
+
 export interface AiFeatureGates {
   summaries: boolean;
   actionItems: boolean;
