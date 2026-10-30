@@ -67,3 +67,4 @@ Screens below moved from the bundled demo data to the real API. See
 - S50 | 2026-10-30 | done | Consent & transparency at `/settings/privacy`: recording notice, watermark toggle, chat message and admin lock. Backed by GET/PUT /api/v1/consent stored in the organization settings blob.
 - S05 | 2026-10-30 | done | Calendar connections at `/settings/calendars`: list, connect (Google/Microsoft) and disconnect. Backed by GET/POST /api/v1/calendars and DELETE /api/v1/calendars/[id]. Real OAuth sync is still missing.
 - S28,S29 | 2026-10-30 | done | People and companies directories at `/app/people` and `/app/companies` over GET /api/v1/people and GET /api/v1/companies.
+- S33,S34 | 2026-10-30 | done | Skills at `/app/skills` and `/app/skills/[id]/edit`: list, create (from a recipe), edit trigger/enabled and delete. Backed by GET/POST/PATCH/DELETE /api/v1/skills. Run history via GET /api/v1/skills/runs.

@@ -108,7 +108,7 @@ Share templates with the workspace,automation,should,yes,yes,S30: a template can
 Assign templates to groups,automation,should,yes,no,P3
 Meeting rules mapping conditions to template or policy,automation,should,yes,no,P4
 Recipes as saved prompts with single or multi scope,automation,must,yes,yes,S31,S32: /app/recipes list and /app/recipes/[id]/edit builder over GET/POST/PATCH/DELETE /api/v1/recipes
-Scheduled skills per meeting daily weekly monthly,automation,should,yes,no,P3
+Scheduled skills per meeting daily weekly monthly,automation,should,yes,yes,S33,S34: /app/skills list and /app/skills/[id]/edit over GET/POST/PATCH/DELETE /api/v1/skills
 Skill output feed,automation,should,yes,no,P3
 Route skill outputs to integrations,automation,should,yes,no,P4
 Test-run a skill before enabling,automation,could,no,no,P4

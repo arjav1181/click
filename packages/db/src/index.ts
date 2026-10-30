@@ -30,3 +30,4 @@ export type { AuthUser } from "./repositories/auth";
 export type { MeetingListItem } from "./repositories/meetings";
 export type { NotePayload } from "./repositories/notes";
 export type { SearchHit } from "./repositories/search";
+export * as skillsRepo from "./repositories/skills";
