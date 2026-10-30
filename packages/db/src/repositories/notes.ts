@@ -1,6 +1,6 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 import { withTenant, type TenantContext } from "../client";
-import { citations, noteSections, notes } from "../schema";
+import { citations, noteSections, notes, templates } from "../schema";
 
 export interface NotePayload {
   id: string;
@@ -200,21 +200,155 @@ export async function failNote(orgId: string, noteId: string) {
   });
 }
 
-export async function listTemplates(ctx: TenantContext) {
+export interface TemplateSection {
+  key: string;
+  title: string;
+}
+
+export interface TemplateRow {
+  id: string;
+  name: string;
+  description: string;
+  prompt: string;
+  sections: TemplateSection[];
+  scope: string;
+  isBuiltin: boolean;
+  ownerId: string | null;
+  ownerName: string | null;
+  updatedAt: string;
+}
+
+function mapTemplate(row: Record<string, unknown>): TemplateRow {
+  const rawSections = Array.isArray(row.sections) ? (row.sections as unknown[]) : [];
+  return {
+    id: String(row.id),
+    name: String(row.name),
+    description: row.description ? String(row.description) : "",
+    prompt: row.prompt ? String(row.prompt) : "",
+    sections: rawSections.map((section) => {
+      const entry = section as Record<string, unknown>;
+      return {
+        key: String(entry.key ?? ""),
+        title: String(entry.title ?? ""),
+      };
+    }),
+    scope: String(row.scope),
+    isBuiltin: Boolean(row.is_builtin),
+    ownerId: row.owner_id ? String(row.owner_id) : null,
+    ownerName: row.owner_name ? String(row.owner_name) : null,
+    updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at),
+  };
+}
+
+const templateSelect = sql`
+  select t.id, t.name, t.description, t.prompt, t.sections, t.scope, t.is_builtin,
+         t.owner_id, u.name as owner_name, t.updated_at
+  from templates t
+  left join users u on u.id = t.owner_id
+`;
+
+/** Built-in templates plus the ones this workspace owns. */
+export async function listTemplates(ctx: TenantContext): Promise<TemplateRow[]> {
   return withTenant(ctx, async (tx) => {
     const rows = await tx.execute(sql`
-      select id, name, description, sections, scope, is_builtin
-      from templates
-      where org_id = ${ctx.orgId} or (org_id is null and is_builtin)
-      order by is_builtin desc, name
+      ${templateSelect}
+      where t.org_id = ${ctx.orgId} or (t.org_id is null and t.is_builtin)
+      order by t.is_builtin desc, t.name
     `);
-    return (rows.rows as Array<Record<string, unknown>>).map((r) => ({
-      id: String(r.id),
-      name: String(r.name),
-      description: r.description ? String(r.description) : "",
-      sections: r.sections,
-      scope: String(r.scope),
-      isBuiltin: Boolean(r.is_builtin),
-    }));
+    return (rows.rows as Array<Record<string, unknown>>).map(mapTemplate);
+  });
+}
+
+export async function getTemplate(ctx: TenantContext, id: string): Promise<TemplateRow | null> {
+  return withTenant(ctx, async (tx) => {
+    const rows = await tx.execute(sql`
+      ${templateSelect}
+      where t.id = ${id}
+        and (t.org_id = ${ctx.orgId} or (t.org_id is null and t.is_builtin))
+      limit 1
+    `);
+    const row = (rows.rows as Array<Record<string, unknown>>)[0];
+    return row ? mapTemplate(row) : null;
+  });
+}
+
+export async function createTemplate(
+  ctx: TenantContext,
+  input: {
+    name: string;
+    description?: string;
+    prompt?: string;
+    sections?: TemplateSection[];
+    scope: "personal" | "workspace";
+  },
+): Promise<TemplateRow> {
+  const id = await withTenant(ctx, async (tx) => {
+    const rows = await tx
+      .insert(templates)
+      .values({
+        orgId: ctx.orgId,
+        ownerId: ctx.userId,
+        name: input.name.slice(0, 120),
+        description: input.description?.slice(0, 500) ?? null,
+        prompt: input.prompt?.slice(0, 8000) ?? null,
+        sections: input.sections ?? [],
+        scope: input.scope,
+        isBuiltin: false,
+      })
+      .returning({ id: templates.id });
+    return rows[0].id;
+  });
+  const created = await getTemplate(ctx, id);
+  if (!created) throw new Error("Template could not be created");
+  return created;
+}
+
+export async function updateTemplate(
+  ctx: TenantContext,
+  id: string,
+  patch: {
+    name?: string;
+    description?: string | null;
+    prompt?: string | null;
+    sections?: TemplateSection[];
+    scope?: "personal" | "workspace";
+  },
+): Promise<{ ok: boolean; reason?: "not_found" | "builtin" }> {
+  return withTenant(ctx, async (tx) => {
+    const existing = await tx
+      .select({ id: templates.id, orgId: templates.orgId, isBuiltin: templates.isBuiltin })
+      .from(templates)
+      .where(eq(templates.id, id))
+      .limit(1);
+    const row = existing[0];
+    if (!row || row.orgId !== ctx.orgId) return { ok: false, reason: "not_found" };
+    if (row.isBuiltin) return { ok: false, reason: "builtin" };
+
+    const values: Record<string, unknown> = { updatedAt: new Date() };
+    if (patch.name !== undefined) values.name = patch.name.slice(0, 120);
+    if (patch.description !== undefined) values.description = patch.description?.slice(0, 500) ?? null;
+    if (patch.prompt !== undefined) values.prompt = patch.prompt?.slice(0, 8000) ?? null;
+    if (patch.sections !== undefined) values.sections = patch.sections;
+    if (patch.scope !== undefined) values.scope = patch.scope;
+    await tx.update(templates).set(values).where(eq(templates.id, id));
+    return { ok: true };
+  });
+}
+
+export async function deleteTemplate(
+  ctx: TenantContext,
+  id: string,
+): Promise<{ ok: boolean; reason?: "not_found" | "builtin" }> {
+  return withTenant(ctx, async (tx) => {
+    const existing = await tx
+      .select({ id: templates.id, orgId: templates.orgId, isBuiltin: templates.isBuiltin })
+      .from(templates)
+      .where(eq(templates.id, id))
+      .limit(1);
+    const row = existing[0];
+    if (!row || row.orgId !== ctx.orgId) return { ok: false, reason: "not_found" };
+    if (row.isBuiltin) return { ok: false, reason: "builtin" };
+    await tx.delete(templates).where(eq(templates.id, id));
+    return { ok: true };
   });
 }

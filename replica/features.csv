@@ -94,17 +94,17 @@ Section-based summaries (overview decisions risks),notes,must,yes,yes,P0; note_s
 Concise versus detailed summary length,notes,must,yes,partial,P1; summarize job accepts a length parameter, UI control not built
 Citation chips back to transcript segments,notes,must,yes,yes,P0; done in replica-backend: citations rows link sections to segments
 Accessible provenance labels for human versus AI text,notes,must,no,partial,P0; citation origin is human or ai in the API, UI chip work pending
-Template-driven summary structure,notes,must,yes,partial,P0; templateId is stored and passed to the LLM, template library UI still demo
-Regenerate with a different template,notes,must,yes,yes,P0; done in replica-backend: notes/generate accepts templateId
+Template-driven summary structure,notes,must,yes,yes,S30: templates drive the section list used by the summary generator; the note references its template_id
+Regenerate with a different template,notes,must,yes,partial,S30: the meeting screen's template picker is not wired yet
 Inline summary editing,notes,must,yes,partial,P1; raw markdown editing is persisted, inline section editing not built
 Summary staleness after transcript edits,notes,should,no,no,P2
 Keyword extraction,notes,must,yes,no,P1
 Timestamped topics and chapters,notes,must,yes,no,P1
 Per-meeting sentiment analysis,notes,should,yes,no,P3
 Question detection,notes,should,yes,no,P3
-Built-in summary templates,automation,must,yes,no,P1
-Custom templates with prompt and sections,automation,must,yes,no,P1
-Share templates with the workspace,automation,should,yes,no,P3
+Built-in summary templates,automation,must,yes,yes,S30: GET /api/v1/templates lists the five built-in templates plus custom ones; built-ins are read-only
+Custom templates with prompt and sections,automation,must,yes,yes,S30: POST/PATCH/DELETE /api/v1/templates with a section builder, prompt editor and personal or workspace scope
+Share templates with the workspace,automation,should,yes,yes,S30: a template can be saved with scope=workspace so every member sees it
 Assign templates to groups,automation,should,yes,no,P3
 Meeting rules mapping conditions to template or policy,automation,should,yes,no,P4
 Recipes as saved prompts with single or multi scope,automation,must,yes,no,P3

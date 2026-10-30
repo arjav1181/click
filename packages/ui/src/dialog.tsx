@@ -12,6 +12,7 @@ export function Dialog({
   children,
   footer,
   className,
+  size = "md",
 }: {
   open: boolean;
   onClose: () => void;
@@ -20,8 +21,14 @@ export function Dialog({
   children?: React.ReactNode;
   footer?: React.ReactNode;
   className?: string;
+  size?: "sm" | "md" | "lg";
 }) {
   const panelRef = React.useRef<HTMLDivElement>(null);
+  const widths = {
+    sm: "max-w-sm",
+    md: "max-w-lg",
+    lg: "max-w-4xl",
+  } as const;
 
   React.useEffect(() => {
     if (!open) return;
@@ -67,7 +74,9 @@ export function Dialog({
         aria-modal="true"
         aria-label={title}
         className={cn(
-          "relative z-10 w-full max-w-lg rounded-lg border border-border bg-surface p-5 shadow-pop",
+          "relative z-10 w-full rounded-lg border border-border bg-surface p-5 shadow-pop",
+          "max-h-[90vh] overflow-y-auto",
+          widths[size],
           className,
         )}
       >
