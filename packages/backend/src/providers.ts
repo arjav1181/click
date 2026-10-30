@@ -471,6 +471,154 @@ Use these section keys when the material supports them: overview, decisions, ris
   };
 }
 
+export interface ChatSnippet {
+  meetingId: string;
+  meetingTitle: string;
+  segmentId: string | null;
+  speakerName: string | null;
+  startMs: number;
+  text: string;
+}
+
+export interface ChatCitation {
+  meetingId: string;
+  segmentId: string | null;
+  quote: string;
+  label: string;
+}
+
+export interface ChatResult {
+  answer: string;
+  citations: ChatCitation[];
+  model: string;
+  usage: { inputTokens: number; outputTokens: number };
+}
+
+export async function chat(input: {
+  question: string;
+  snippets: ChatSnippet[];
+  override?: ProviderOverride | null;
+}): Promise<ChatResult> {
+  const config = aiConfig().llm;
+  const override = input.override?.enabled === false ? null : input.override ?? null;
+  const provider = override?.provider ?? config.provider;
+  const baseUrl = override?.baseUrl ?? config.baseUrl;
+  const apiKey = override?.apiKey ?? config.apiKey;
+  const model = override?.model ?? config.model;
+
+  if (provider === "mock") {
+    return heuristicChat(input.question, input.snippets, model);
+  }
+
+  if (!apiKey && !/localhost|127\.0\.0\.1/.test(baseUrl)) {
+    throw new Error("LLM_API_KEY is not set. Add a key or set LLM_PROVIDER=mock.");
+  }
+
+  const context = input.snippets
+    .slice(0, 40)
+    .map(
+      (snippet, index) =>
+        `[${index}] ${snippet.meetingTitle} · ${snippet.speakerName ?? "Speaker"} (${Math.floor(
+          snippet.startMs / 1000,
+        )}s): ${snippet.text}`,
+    )
+    .join("\n")
+    .slice(0, 80_000);
+
+  const prompt = `Question: ${input.question}
+
+Sources (numbered):
+${context}
+
+Answer the question using only the sources above. Cite the source numbers in square brackets, e.g. [0]. If the sources do not answer the question, say so plainly. Keep the answer concise and well structured.`;
+
+  const response = await fetchWithRetry(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+    },
+    body: JSON.stringify({
+      model,
+      temperature: 0.2,
+      max_tokens: config.maxTokens,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are Click, a careful assistant that answers questions from meeting transcripts and notes. Never invent facts. Cite sources with [n].",
+        },
+        { role: "user", content: prompt },
+      ],
+    }),
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(`LLM provider returned ${response.status}: ${detail.slice(0, 300)}`);
+  }
+  const body = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
+  };
+  const content = body.choices?.[0]?.message?.content;
+  if (!content) throw new Error("LLM provider returned an empty response.");
+
+  // Pull source numbers out of the answer text.
+  const cited = new Set<number>();
+  for (const match of content.matchAll(/\[(\d+)\]/g)) {
+    const index = Number(match[1]);
+    if (Number.isFinite(index) && index >= 0 && index < input.snippets.length) cited.add(index);
+  }
+  const citations: ChatCitation[] = [...cited].map((index) => {
+    const snippet = input.snippets[index];
+    return {
+      meetingId: snippet.meetingId,
+      segmentId: snippet.segmentId,
+      quote: snippet.text.slice(0, 200),
+      label: `${snippet.meetingTitle} · ${Math.floor(snippet.startMs / 60000)}:${String(
+        Math.floor((snippet.startMs % 60000) / 1000),
+      ).padStart(2, "0")}`,
+    };
+  });
+
+  return {
+    answer: content,
+    citations,
+    model,
+    usage: {
+      inputTokens: body.usage?.prompt_tokens ?? 0,
+      outputTokens: body.usage?.completion_tokens ?? 0,
+    },
+  };
+}
+
+function heuristicChat(question: string, snippets: ChatSnippet[], model = "mock-chat"): ChatResult {
+  const lower = question.toLowerCase();
+  const matched = snippets.filter((snippet) => {
+    return snippet.text.toLowerCase().includes(lower.split(/\s+/)[0] ?? "");
+  });
+  const chosen = (matched.length ? matched : snippets).slice(0, 3);
+  const answer =
+    chosen.length === 0
+      ? "I could not find anything in your meetings that answers that question."
+      : `Based on your meetings, here is what I found:\n\n${chosen
+          .map((snippet, index) => `- ${snippet.text} [${index}]`)
+          .join("\n")}`;
+  return {
+    answer,
+    citations: chosen.map((snippet, index) => ({
+      meetingId: snippet.meetingId,
+      segmentId: snippet.segmentId,
+      quote: snippet.text.slice(0, 200),
+      label: `${snippet.meetingTitle} · ${Math.floor(snippet.startMs / 60000)}:${String(
+        Math.floor((snippet.startMs % 60000) / 1000),
+      ).padStart(2, "0")}`,
+    })),
+    model,
+    usage: { inputTokens: 0, outputTokens: 0 },
+  };
+}
+
 export async function embedTexts(
   texts: string[],
   override?: ProviderOverride | null,
