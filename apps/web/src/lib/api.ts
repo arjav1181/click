@@ -512,6 +512,35 @@ export async function fetchAuditEvents(
   );
 }
 
+export interface ProfileDto {
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    avatarUrl: string | null;
+    locale: string;
+    timezone: string;
+    emailVerified: boolean;
+  };
+  org: { id: string; name: string; slug: string; role: string } | null;
+}
+
+export async function fetchProfile(): Promise<ApiResult<ProfileDto>> {
+  return apiFetch<ProfileDto>("/api/v1/settings/profile");
+}
+
+export async function updateProfile(patch: {
+  name?: string;
+  locale?: string;
+  timezone?: string;
+  avatarUrl?: string | null;
+}): Promise<ApiResult<ProfileDto>> {
+  return apiFetch<ProfileDto>("/api/v1/settings/profile", {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
 export interface AiFeatureGates {
   summaries: boolean;
   actionItems: boolean;

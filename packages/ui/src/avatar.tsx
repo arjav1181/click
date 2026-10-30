@@ -5,11 +5,13 @@ export function Avatar({
   name,
   size = "md",
   square,
+  src,
   className,
 }: {
   name: string;
   size?: "xs" | "sm" | "md" | "lg" | "xl";
   square?: boolean;
+  src?: string | null;
   className?: string;
 }) {
   const sizes = {
@@ -27,12 +29,26 @@ export function Avatar({
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("");
 
+  const shape = square ? "rounded-md" : "rounded-pill";
+
+  if (src) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt=""
+        aria-hidden="true"
+        className={cn("shrink-0 object-cover", shape, sizes[size], className)}
+      />
+    );
+  }
+
   return (
     <span
       aria-hidden="true"
       className={cn(
         "inline-flex shrink-0 items-center justify-center bg-surface-2 font-semibold text-text-muted",
-        square ? "rounded-md" : "rounded-pill",
+        shape,
         sizes[size],
         className,
       )}
