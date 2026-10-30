@@ -1057,6 +1057,60 @@ export async function fetchLegalHolds(): Promise<ApiResult<{ holds: LegalHoldRow
   return apiFetch<{ holds: LegalHoldRow[] }>("/api/v1/legal-hold");
 }
 
+export interface GroupMemberRow {
+  id: string;
+  name: string;
+  email: string;
+}
+
+export interface GroupRow {
+  id: string;
+  name: string;
+  priority: number;
+  templateId: string | null;
+  members: GroupMemberRow[];
+  createdAt: string;
+}
+
+export async function fetchGroups(): Promise<ApiResult<{ groups: GroupRow[] }>> {
+  return apiFetch<{ groups: GroupRow[] }>("/api/v1/groups");
+}
+
+export async function createGroup(input: {
+  name: string;
+  priority?: number;
+}): Promise<ApiResult<{ id: string }>> {
+  return apiFetch<{ id: string }>("/api/v1/groups", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateGroup(
+  id: string,
+  patch: { name?: string; priority?: number; templateId?: string | null },
+): Promise<ApiResult<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>(`/api/v1/groups/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function deleteGroup(id: string): Promise<ApiResult<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>(`/api/v1/groups/${id}`, { method: "DELETE" });
+}
+
+export async function addGroupMember(groupId: string, userId: string): Promise<ApiResult<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>(`/api/v1/groups/${groupId}/members`, {
+    method: "POST",
+    body: JSON.stringify({ userId }),
+  });
+}
+
+export async function removeGroupMember(groupId: string, userId: string): Promise<ApiResult<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>(`/api/v1/groups/${groupId}/members/${userId}`, { method: "DELETE" });
+}
+
 export async function createLegalHold(input: {
   name: string;
   description?: string;
