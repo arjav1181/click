@@ -543,6 +543,25 @@ export async function deleteOrganization(ctx: TenantContext) {
   });
 }
 
+export async function getBotNotice(ctx: TenantContext): Promise<string> {
+  return withTenant(ctx, async (tx) => {
+    const rows = await tx
+      .select({ settings: organizations.settings })
+      .from(organizations)
+      .where(eq(organizations.id, ctx.orgId))
+      .limit(1);
+    const raw = (rows[0]?.settings ?? {}) as Record<string, unknown>;
+    const notice = raw.bot_notice;
+    return typeof notice === "string" && notice ? notice : "This meeting is being recorded and transcribed by Click.";
+  });
+}
+
+export async function updateBotNotice(ctx: TenantContext, notice: string): Promise<string> {
+  const clean = notice.trim().slice(0, 2000) || "This meeting is being recorded and transcribed by Click.";
+  await patchSettings(ctx, "bot_notice", clean);
+  return clean;
+}
+
 export interface NotificationPrefs {
   digest: boolean;
   mentions: boolean;
