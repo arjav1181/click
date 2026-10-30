@@ -70,3 +70,4 @@ Screens below moved from the bundled demo data to the real API. See
 - S33,S34 | 2026-10-30 | done | Skills at `/app/skills` and `/app/skills/[id]/edit`: list, create (from a recipe), edit trigger/enabled and delete. Backed by GET/POST/PATCH/DELETE /api/v1/skills. Run history via GET /api/v1/skills/runs.
 - S35 | 2026-10-30 | done | Feed at `/app/feed`: skill runs with status, output and token counts. Backed by GET /api/v1/skills/runs.
 - S19 | 2026-10-30 | done | Soundbites at `/app/soundbites`: list and delete clips. Backed by GET/POST/DELETE /api/v1/soundbites.
+- Vision | 2026-10-30 | done | Vision-aware chat: packages/backend/src/video.ts extracts a frame from a recording at a timestamp with ffmpeg; chatWithVision lets the LLM call a get_frame tool, feeds the frame back as an image, and returns it to the UI. GET /api/v1/meetings/[id]/frame serves frames; the Ask AI page renders them inline.

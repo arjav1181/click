@@ -215,3 +215,4 @@ Native app-store distribution,skip,skip,yes,skip,Ship self-hosted builds first
 Public recipe gallery content,skip,skip,yes,skip,Third-party authored content
 Original prompt and template libraries,skip,skip,yes,skip,Write our own prompts
 Competitor comparison claims,skip,skip,yes,skip,Marketing claims belong to the originals
+Vision-aware AI chat with frame extraction,ai,must,no,yes,P0; Ask AI can request a frame from the meeting recording at a timestamp when a speaker references a visual; the frame is extracted with ffmpeg and sent to a vision-capable LLM alongside the transcript
