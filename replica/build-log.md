@@ -61,3 +61,4 @@ Screens below moved from the bundled demo data to the real API. See
 - S57 | 2026-10-30 | done | Admin analytics at `/admin/analytics`: member count, ASR seconds, LLM tokens in/out, cost estimate, budget cap and period. Backed by GET /api/v1/org/usage and GET /api/v1/org/members.
 - S60 | 2026-10-30 | done | Instance ops at `/admin/instance`: provider status cards for ASR, LLM, embeddings and SMTP with test-connection buttons. Values come from /api/v1/admin/providers and /api/v1/admin/providers/test (env-based config).
 - S46 | 2026-10-30 | done | MCP setup at `/app/developers/mcp`: endpoint URL, available tools and client snippets for Claude Desktop, Cursor and generic clients. Keys are created on the Developers page.
+- S54 | 2026-10-30 | done | Admin groups at `/admin/groups`: create groups, add and remove members, delete. Backed by GET/POST /api/v1/groups, PATCH/DELETE /api/v1/groups/[id] and POST/DELETE /api/v1/groups/[id]/members/[userId].
