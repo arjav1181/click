@@ -1251,6 +1251,33 @@ export async function fetchRetention(): Promise<ApiResult<{ policy: RetentionPol
   return apiFetch<{ policy: RetentionPolicy }>("/api/v1/retention");
 }
 
+export interface CalendarConnectionRow {
+  id: string;
+  provider: "google" | "microsoft";
+  accountEmail: string;
+  status: "connected" | "expired" | "revoked" | "error";
+  syncCursor: string | null;
+  createdAt: string;
+}
+
+export async function fetchCalendars(): Promise<ApiResult<{ connections: CalendarConnectionRow[] }>> {
+  return apiFetch<{ connections: CalendarConnectionRow[] }>("/api/v1/calendars");
+}
+
+export async function connectCalendar(input: {
+  provider: "google" | "microsoft";
+  accountEmail: string;
+}): Promise<ApiResult<{ id: string }>> {
+  return apiFetch<{ id: string }>("/api/v1/calendars", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function disconnectCalendar(id: string): Promise<ApiResult<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>(`/api/v1/calendars/${id}`, { method: "DELETE" });
+}
+
 export interface ConsentPolicy {
   recordingNotice: string;
   watermark: boolean;
