@@ -1215,6 +1215,14 @@ export async function fetchPeople(q?: string): Promise<ApiResult<{ people: Perso
   return apiFetch<{ people: PersonRow[] }>(url);
 }
 
+export async function fetchPerson(id: string): Promise<ApiResult<{ person: PersonRow }>> {
+  return apiFetch<{ person: PersonRow }>(`/api/v1/people/${id}`);
+}
+
+export async function fetchCompany(id: string): Promise<ApiResult<{ company: CompanyRow }>> {
+  return apiFetch<{ company: CompanyRow }>(`/api/v1/companies/${id}`);
+}
+
 export async function fetchCompanies(q?: string): Promise<ApiResult<{ companies: CompanyRow[] }>> {
   const url = q ? `/api/v1/companies?q=${encodeURIComponent(q)}` : "/api/v1/companies";
   return apiFetch<{ companies: CompanyRow[] }>(url);

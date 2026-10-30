@@ -58,6 +58,16 @@ export async function listPeople(ctx: TenantContext, q?: string): Promise<Person
   });
 }
 
+export async function getPerson(ctx: TenantContext, id: string): Promise<PersonRow | null> {
+  const all = await listPeople(ctx);
+  return all.find((p) => p.id === id) ?? null;
+}
+
+export async function getCompany(ctx: TenantContext, id: string): Promise<CompanyRow | null> {
+  const all = await listCompanies(ctx);
+  return all.find((c) => c.id === id) ?? null;
+}
+
 export async function listCompanies(ctx: TenantContext, q?: string): Promise<CompanyRow[]> {
   return withTenant(ctx, async (tx) => {
     const conditions = [eq(companies.orgId, ctx.orgId)];
