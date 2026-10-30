@@ -1014,6 +1014,34 @@ export async function mergeSpeakers(sourceId: string, targetId: string): Promise
   });
 }
 
+export interface VocabularyTermRow {
+  id: string;
+  term: string;
+  kind: "name" | "term" | "acronym";
+  scope: "personal" | "workspace";
+  createdByName: string | null;
+  createdAt: string;
+}
+
+export async function fetchVocabulary(): Promise<ApiResult<{ terms: VocabularyTermRow[] }>> {
+  return apiFetch<{ terms: VocabularyTermRow[] }>("/api/v1/vocabulary");
+}
+
+export async function addVocabularyTerm(input: {
+  term: string;
+  kind: "name" | "term" | "acronym";
+  scope: "personal" | "workspace";
+}): Promise<ApiResult<{ id: string } | { ok: false; reason: "duplicate" }>> {
+  return apiFetch<{ id: string } | { ok: false; reason: "duplicate" }>("/api/v1/vocabulary", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function deleteVocabularyTerm(id: string): Promise<ApiResult<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>(`/api/v1/vocabulary/${id}`, { method: "DELETE" });
+}
+
 export interface AiFeatureGates {
   summaries: boolean;
   actionItems: boolean;
