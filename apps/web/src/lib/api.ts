@@ -754,6 +754,91 @@ export async function deleteTemplate(id: string): Promise<ApiResult<{ ok: boolea
   return apiFetch<{ ok: boolean }>(`/api/v1/templates/${id}`, { method: "DELETE" });
 }
 
+export interface ApiKeyRow {
+  id: string;
+  name: string;
+  prefix: string;
+  scopes: string[];
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+  createdAt: string;
+  createdByName: string;
+}
+
+export async function fetchApiKeys(): Promise<
+  ApiResult<{ keys: ApiKeyRow[]; scopes: string[] }>
+> {
+  return apiFetch<{ keys: ApiKeyRow[]; scopes: string[] }>("/api/v1/api-keys");
+}
+
+export async function createApiKey(input: {
+  name: string;
+  scopes: string[];
+}): Promise<ApiResult<{ id: string; prefix: string; rawKey: string }>> {
+  return apiFetch<{ id: string; prefix: string; rawKey: string }>("/api/v1/api-keys", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function revokeApiKey(id: string): Promise<ApiResult<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>(`/api/v1/api-keys/${id}`, { method: "DELETE" });
+}
+
+export interface WebhookEndpointRow {
+  id: string;
+  url: string;
+  events: string[];
+  active: boolean;
+  createdAt: string;
+}
+
+export interface WebhookDeliveryRow {
+  id: string;
+  endpointId: string;
+  event: string;
+  status: string;
+  attempts: number;
+  responseCode: number | null;
+  createdAt: string;
+}
+
+export async function fetchWebhooks(): Promise<
+  ApiResult<{ endpoints: WebhookEndpointRow[]; events: string[] }>
+> {
+  return apiFetch<{ endpoints: WebhookEndpointRow[]; events: string[] }>("/api/v1/webhooks");
+}
+
+export async function createWebhook(input: {
+  url: string;
+  events: string[];
+}): Promise<ApiResult<{ id: string; secret: string }>> {
+  return apiFetch<{ id: string; secret: string }>("/api/v1/webhooks", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateWebhook(
+  id: string,
+  patch: { url?: string; events?: string[]; active?: boolean },
+): Promise<ApiResult<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>(`/api/v1/webhooks/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function deleteWebhook(id: string): Promise<ApiResult<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>(`/api/v1/webhooks/${id}`, { method: "DELETE" });
+}
+
+export async function fetchWebhookDeliveries(
+  id: string,
+): Promise<ApiResult<{ deliveries: WebhookDeliveryRow[] }>> {
+  return apiFetch<{ deliveries: WebhookDeliveryRow[] }>(`/api/v1/webhooks/${id}/deliveries`);
+}
+
 export interface AiFeatureGates {
   summaries: boolean;
   actionItems: boolean;
