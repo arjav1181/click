@@ -1251,6 +1251,24 @@ export async function fetchRetention(): Promise<ApiResult<{ policy: RetentionPol
   return apiFetch<{ policy: RetentionPolicy }>("/api/v1/retention");
 }
 
+export interface ConsentPolicy {
+  recordingNotice: string;
+  watermark: boolean;
+  chatMessage: string;
+  adminLocked: boolean;
+}
+
+export async function fetchConsent(): Promise<ApiResult<{ policy: ConsentPolicy; role: string }>> {
+  return apiFetch<{ policy: ConsentPolicy; role: string }>("/api/v1/consent");
+}
+
+export async function updateConsent(patch: Partial<ConsentPolicy>): Promise<ApiResult<{ policy: ConsentPolicy }>> {
+  return apiFetch<{ policy: ConsentPolicy }>("/api/v1/consent", {
+    method: "PUT",
+    body: JSON.stringify(patch),
+  });
+}
+
 export async function updateRetention(
   patch: Partial<Omit<RetentionPolicy, "updatedAt">>,
 ): Promise<ApiResult<{ policy: RetentionPolicy }>> {
