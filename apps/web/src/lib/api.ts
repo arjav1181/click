@@ -839,6 +839,46 @@ export async function fetchWebhookDeliveries(
   return apiFetch<{ deliveries: WebhookDeliveryRow[] }>(`/api/v1/webhooks/${id}/deliveries`);
 }
 
+export interface IntegrationCatalogRow {
+  key: string;
+  name: string;
+  category: string;
+  authKind: string;
+  scopes: string[];
+  docsUrl: string | null;
+}
+
+export interface IntegrationConnectionRow {
+  id: string;
+  integrationKey: string;
+  status: "connected" | "error" | "revoked";
+  config: Record<string, unknown>;
+  connectedAt: string;
+  connectedByName: string | null;
+}
+
+export async function fetchIntegrations(): Promise<
+  ApiResult<{ catalog: IntegrationCatalogRow[]; connections: IntegrationConnectionRow[] }>
+> {
+  return apiFetch<{ catalog: IntegrationCatalogRow[]; connections: IntegrationConnectionRow[] }>(
+    "/api/v1/integrations",
+  );
+}
+
+export async function connectIntegration(input: {
+  integrationKey: string;
+  config?: Record<string, unknown>;
+}): Promise<ApiResult<{ id: string }>> {
+  return apiFetch<{ id: string }>("/api/v1/integrations", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function disconnectIntegration(key: string): Promise<ApiResult<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>(`/api/v1/integrations/${key}`, { method: "DELETE" });
+}
+
 export interface ChatThreadRow {
   id: string;
   title: string | null;
