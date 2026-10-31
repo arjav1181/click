@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { integrationsRepo } from "@click/db";
+import { encryptSecret } from "@click/backend";
 import { assertSameOrigin, handler, json, parseJson, clientIp } from "@/server/http";
 import { requireOrgSession } from "@/server/auth";
 import { recordAudit } from "@/server/audit";
@@ -7,6 +8,9 @@ import { recordAudit } from "@/server/audit";
 const connectSchema = z.object({
   integrationKey: z.string().trim().min(1).max(80),
   config: z.record(z.string(), z.unknown()).optional(),
+  // Personal API tokens the workspace brought along. They are encrypted
+  // before they reach the database and never sent back to the browser.
+  credentials: z.record(z.string(), z.string()).optional(),
 });
 
 export const GET = handler(async () => {
@@ -22,7 +26,11 @@ export const POST = handler(async (request) => {
 
   const created = await integrationsRepo.connectIntegration(
     { orgId: session.orgId, userId: session.id },
-    body,
+    {
+      integrationKey: body.integrationKey,
+      config: body.config,
+      credentialsEnc: body.credentials ? encryptSecret(JSON.stringify(body.credentials)) : undefined,
+    },
   );
 
   await recordAudit(session, {

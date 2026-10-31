@@ -3,7 +3,7 @@ import IORedis from "ioredis";
 import { redisUrl } from "./env";
 import { runJob, type JobPayload } from "./jobs";
 
-export const QUEUES = ["transcribe", "summarize", "embed", "email", "calendar", "bot"] as const;
+export const QUEUES = ["transcribe", "summarize", "embed", "email", "calendar", "bot", "webhook"] as const;
 export type QueueName = (typeof QUEUES)[number];
 
 /** The queue name and the job name are not always the same. */
@@ -14,6 +14,7 @@ const JOB_NAMES: Record<QueueName, JobPayload["name"]> = {
   email: "email",
   calendar: "calendar-sync",
   bot: "bot-join",
+  webhook: "webhook-deliver",
 };
 
 type DataFor<Q extends QueueName> = Q extends "transcribe"
@@ -26,7 +27,9 @@ type DataFor<Q extends QueueName> = Q extends "transcribe"
         ? Extract<JobPayload, { name: "calendar-sync" }>["data"]
         : Q extends "bot"
           ? Extract<JobPayload, { name: "bot-join" }>["data"]
-          : Extract<JobPayload, { name: "email" }>["data"];
+          : Q extends "webhook"
+            ? Extract<JobPayload, { name: "webhook-deliver" }>["data"]
+            : Extract<JobPayload, { name: "email" }>["data"];
 
 let redis: IORedis | null = null;
 let queues: Map<QueueName, Queue> | null = null;
@@ -68,8 +71,15 @@ function queueFor(name: QueueName): Queue {
  * Adds a job. With no Redis the job runs in the web process, which keeps
  * `docker compose up` with only Postgres honest for demos and tests. Production
  * installs set REDIS_URL and run apps/worker.
+ *
+ * `delayMs` postpones the job; it is used for webhook retries.
  */
-export async function enqueue<Q extends QueueName>(name: Q, data: DataFor<Q>): Promise<string | null> {
+export async function enqueue<Q extends QueueName>(
+  name: Q,
+  data: DataFor<Q>,
+  options?: { delayMs?: number },
+): Promise<string | null> {
+  const delayMs = Math.max(0, options?.delayMs ?? 0);
   if (!isQueueConfigured()) {
     if (process.env.NODE_ENV !== "test") {
       console.info(`[queue] REDIS_URL not set; running ${name} inline`);
@@ -81,12 +91,18 @@ export async function enqueue<Q extends QueueName>(name: Q, data: DataFor<Q>): P
     };
     if (process.env.INLINE_QUEUE_SYNC === "1") {
       await run();
+    } else if (delayMs > 0) {
+      const timer = setTimeout(() => {
+        void run().catch((error) => console.error(`[queue] inline ${name} failed`, error));
+      }, delayMs);
+      // The timer must not keep a short-lived process alive.
+      timer.unref?.();
     } else {
       void run().catch((error) => console.error(`[queue] inline ${name} failed`, error));
     }
     return null;
   }
-  const job = await queueFor(name).add(name, data);
+  const job = await queueFor(name).add(name, data, delayMs > 0 ? { delay: delayMs } : undefined);
   return job.id ?? null;
 }
 

@@ -15,6 +15,15 @@ import {
   usageMeters,
 } from "../schema";
 
+/** A task that was pushed to an external project tool. */
+export interface ActionItemPushRef {
+  provider: string;
+  externalId: string;
+  url: string | null;
+  label: string;
+  pushedAt: string;
+}
+
 export async function listActionItems(ctx: TenantContext, status?: string) {
   return withTenant(ctx, async (tx) => {
     const conditions = [];
@@ -29,12 +38,73 @@ export async function listActionItems(ctx: TenantContext, status?: string) {
         dueAt: actionItems.dueAt,
         status: actionItems.status,
         sourceSegmentId: actionItems.sourceSegmentId,
+        pushedRefs: actionItems.pushedRefs,
       })
       .from(actionItems)
       .innerJoin(meetings, eq(meetings.id, actionItems.meetingId))
       .where(conditions.length ? and(...conditions) : undefined)
       .orderBy(asc(actionItems.dueAt));
-    return rows.map((r) => ({ ...r, dueAt: r.dueAt?.toISOString() ?? null }));
+    return rows.map((r) => ({
+      ...r,
+      dueAt: r.dueAt?.toISOString() ?? null,
+      pushedRefs: (r.pushedRefs ?? []) as ActionItemPushRef[],
+    }));
+  });
+}
+
+/** One action item with everything the task-push clients need. */
+export async function getActionItem(ctx: TenantContext, id: string) {
+  return withTenant(ctx, async (tx) => {
+    const rows = await tx
+      .select({
+        id: actionItems.id,
+        meetingId: actionItems.meetingId,
+        meetingTitle: meetings.title,
+        text: actionItems.text,
+        assigneeName: actionItems.assigneeName,
+        dueAt: actionItems.dueAt,
+        status: actionItems.status,
+        pushedRefs: actionItems.pushedRefs,
+      })
+      .from(actionItems)
+      .innerJoin(meetings, eq(meetings.id, actionItems.meetingId))
+      .where(and(eq(actionItems.id, id), eq(actionItems.orgId, ctx.orgId)))
+      .limit(1);
+    const row = rows[0];
+    if (!row) return null;
+    return {
+      id: row.id,
+      meetingId: row.meetingId,
+      meetingTitle: row.meetingTitle,
+      text: row.text,
+      assigneeName: row.assigneeName ?? null,
+      dueAt: row.dueAt?.toISOString() ?? null,
+      status: row.status,
+      pushedRefs: (row.pushedRefs ?? []) as ActionItemPushRef[],
+    };
+  });
+}
+
+/** Appends a reference to the task that now lives in an external tool. */
+export async function recordActionItemPush(
+  ctx: TenantContext,
+  id: string,
+  ref: ActionItemPushRef,
+): Promise<{ ok: boolean }> {
+  return withTenant(ctx, async (tx) => {
+    const rows = await tx
+      .select({ pushedRefs: actionItems.pushedRefs })
+      .from(actionItems)
+      .where(and(eq(actionItems.id, id), eq(actionItems.orgId, ctx.orgId)))
+      .limit(1);
+    if (!rows[0]) return { ok: false };
+    const existing = (rows[0].pushedRefs ?? []) as ActionItemPushRef[];
+    const next = [...existing.filter((entry) => entry.provider !== ref.provider), ref];
+    await tx
+      .update(actionItems)
+      .set({ pushedRefs: next, updatedAt: new Date() })
+      .where(eq(actionItems.id, id));
+    return { ok: true };
   });
 }
 

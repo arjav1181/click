@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { workspaceRepo } from "@click/db";
+import { emitWebhookEvent } from "@click/backend";
 import { assertSameOrigin, handler, json, parseJson, clientIp, ApiError } from "@/server/http";
 import { requireOrgSession } from "@/server/auth";
 import { recordAudit } from "@/server/audit";
@@ -27,6 +28,10 @@ export const PATCH = handler(async (request, context: { params: Promise<{ id: st
     targetId: id,
     metadata: { fields: Object.keys(body) },
     ip: clientIp(request),
+  });
+  await emitWebhookEvent(session.orgId, "action_item.updated", {
+    actionItemId: id,
+    fields: body,
   });
   return json({ ok: true });
 });

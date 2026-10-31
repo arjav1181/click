@@ -1,5 +1,5 @@
 import { recordings, meetingsRepo, withTenant } from "@click/db";
-import { enqueue, newStorageKey, putObject, uploadLimits, extensionFor } from "@click/backend";
+import { enqueue, newStorageKey, putObject, uploadLimits, extensionFor, emitWebhookEvent } from "@click/backend";
 import { assertSameOrigin, handler, json, clientIp, ApiError } from "@/server/http";
 import { requireOrgSession } from "@/server/auth";
 import { recordAudit } from "@/server/audit";
@@ -73,6 +73,11 @@ export const POST = handler(async (request) => {
     targetId: meeting.id,
     metadata: { bytes: buffer.length, mime, recordingId: recording.id },
     ip: clientIp(request),
+  });
+  await emitWebhookEvent(session.orgId, "meeting.created", {
+    meetingId: meeting.id,
+    title: meeting.title,
+    source: meeting.source,
   });
 
   return json({ meeting, recordingId: recording.id, status: "processing" }, { status: 202 });

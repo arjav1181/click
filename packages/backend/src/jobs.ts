@@ -18,6 +18,7 @@ import { aiConfig } from "./env";
 import { sendMail } from "./mailer";
 import type { EmailContent } from "./emails";
 import { getObject } from "./storage";
+import { emitWebhookEvent } from "./webhooks";
 import {
   assertBudget,
   embedTexts,
@@ -63,13 +64,19 @@ export interface BotJoinJobData {
   botJobId: string;
 }
 
+export interface WebhookDeliverJobData {
+  orgId: string;
+  deliveryId: string;
+}
+
 export type JobPayload =
   | { name: "transcribe"; data: TranscribeJobData }
   | { name: "summarize"; data: SummarizeJobData }
   | { name: "embed"; data: EmbedJobData }
   | { name: "email"; data: EmailJobData }
   | { name: "calendar-sync"; data: CalendarSyncJobData }
-  | { name: "bot-join"; data: BotJoinJobData };
+  | { name: "bot-join"; data: BotJoinJobData }
+  | { name: "webhook-deliver"; data: WebhookDeliverJobData };
 
 export interface JobOutcome {
   orgId: string;
@@ -85,6 +92,18 @@ async function readAll(stream: NodeJS.ReadableStream, maxBytes: number): Promise
     chunks.push(chunk);
   }
   return Buffer.concat(chunks);
+}
+
+/**
+ * A broken webhook endpoint must never stop the meeting pipeline, so the
+ * emission is best-effort.
+ */
+async function emit(orgId: string, event: string, data: Record<string, unknown>) {
+  try {
+    await emitWebhookEvent(orgId, event, data);
+  } catch (error) {
+    console.error(`[webhook] ${event} could not be queued`, error);
+  }
 }
 
 export async function transcribeJob(data: TranscribeJobData): Promise<JobOutcome> {
@@ -213,6 +232,11 @@ export async function transcribeJob(data: TranscribeJobData): Promise<JobOutcome
     });
 
     await recordUsage(data.orgId, { asrSeconds: durationSeconds });
+    await emit(data.orgId, "transcript.ready", {
+      meetingId: data.meetingId,
+      transcriptId,
+      durationSeconds,
+    });
     return { orgId: data.orgId, meetingId: data.meetingId };
   } catch (error) {
     await withTenant(ctx, async (tx) => {
@@ -224,6 +248,11 @@ export async function transcribeJob(data: TranscribeJobData): Promise<JobOutcome
         .update(meetings)
         .set({ status: "failed", failureReason: error instanceof Error ? error.message.slice(0, 500) : "Transcription failed" })
         .where(eq(meetings.id, data.meetingId));
+    });
+    await emit(data.orgId, "meeting.failed", {
+      meetingId: data.meetingId,
+      stage: "transcribe",
+      reason: error instanceof Error ? error.message.slice(0, 300) : "Transcription failed",
     });
     throw error;
   }
@@ -319,6 +348,7 @@ export async function summarizeJob(data: SummarizeJobData): Promise<JobOutcome> 
 
     const segmentIdByIndex = new Map(transcript.map((line) => [line.index, line.id]));
     const startByIndex = new Map(transcript.map((line) => [line.index, line.startMs]));
+    const createdActionItems: Array<{ id: string; text: string; assigneeName: string | null }> = [];
 
     await withTenant(ctx, async (tx) => {
       const current = await tx.select({ version: notes.version }).from(notes).where(eq(notes.id, note.id)).limit(1);
@@ -370,22 +400,44 @@ export async function summarizeJob(data: SummarizeJobData): Promise<JobOutcome> 
         and(eq(actionItems.meetingId, data.meetingId), sql`${actionItems.sourceSegmentId} is not null`),
       );
       if (actionItemsEnabled && summary.actionItems.length > 0) {
-        await tx.insert(actionItems).values(
-          summary.actionItems.slice(0, 50).map((item) => ({
-            orgId: data.orgId,
-            meetingId: data.meetingId,
-            text: item.text.slice(0, 2000),
+        const inserted = await tx
+          .insert(actionItems)
+          .values(
+            summary.actionItems.slice(0, 50).map((item) => ({
+              orgId: data.orgId,
+              meetingId: data.meetingId,
+              text: item.text.slice(0, 2000),
+              assigneeName: item.assigneeName ?? null,
+              dueAt: item.dueAt ? new Date(item.dueAt) : null,
+              sourceSegmentId:
+                item.sourceSegmentIndex != null ? (segmentIdByIndex.get(item.sourceSegmentIndex) ?? null) : null,
+              status: "open",
+            })),
+          )
+          .returning({ id: actionItems.id, text: actionItems.text, assigneeName: actionItems.assigneeName });
+        for (const item of inserted) {
+          createdActionItems.push({
+            id: item.id,
+            text: item.text,
             assigneeName: item.assigneeName ?? null,
-            dueAt: item.dueAt ? new Date(item.dueAt) : null,
-            sourceSegmentId:
-              item.sourceSegmentIndex != null ? (segmentIdByIndex.get(item.sourceSegmentIndex) ?? null) : null,
-            status: "open",
-          })),
-        );
+          });
+        }
       }
 
       await tx.update(meetings).set({ status: "ready" }).where(eq(meetings.id, data.meetingId));
     });
+
+    for (const item of createdActionItems) {
+      await emit(data.orgId, "action_item.created", {
+        actionItemId: item.id,
+        meetingId: data.meetingId,
+        text: item.text,
+        assigneeName: item.assigneeName,
+        source: "ai",
+      });
+    }
+    await emit(data.orgId, "note.ready", { meetingId: data.meetingId, noteId: note.id });
+    await emit(data.orgId, "meeting.ready", { meetingId: data.meetingId, noteId: note.id });
 
     await recordUsage(data.orgId, {
       tokensIn: summary.usage.inputTokens,
@@ -399,6 +451,11 @@ export async function summarizeJob(data: SummarizeJobData): Promise<JobOutcome> 
         .update(meetings)
         .set({ status: "failed", failureReason: error instanceof Error ? error.message.slice(0, 500) : "Summary failed" })
         .where(eq(meetings.id, data.meetingId));
+    });
+    await emit(data.orgId, "meeting.failed", {
+      meetingId: data.meetingId,
+      stage: "summarize",
+      reason: error instanceof Error ? error.message.slice(0, 300) : "Summary failed",
     });
     throw error;
   }
@@ -519,7 +576,16 @@ export async function runJob(payload: JobPayload): Promise<JobOutcome> {
       return calendarSyncJob(payload.data);
     case "bot-join":
       return botJoinJob(payload.data);
+    case "webhook-deliver":
+      return webhookDeliverJob(payload.data);
   }
+}
+
+/** Posts one webhook event to the endpoint that asked for it. */
+export async function webhookDeliverJob(data: WebhookDeliverJobData): Promise<JobOutcome> {
+  const { deliverWebhook } = await import("./webhooks");
+  await deliverWebhook(data.orgId, data.deliveryId);
+  return { orgId: data.orgId };
 }
 
 /** Used by the retry route to re-run the pipeline from a chosen stage. */
