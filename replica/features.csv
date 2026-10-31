@@ -115,9 +115,9 @@ Test-run a skill before enabling,automation,could,no,no,P4
 Auto-extract action items,actions,must,yes,yes,P0; done in replica-backend: summarize job writes action_items with a source segment
 Assign action item owners and due dates,actions,must,yes,partial,P1; action item rows carry assignee and due date; editing owners not yet in the UI
 Task list across all meetings,actions,must,yes,yes,P0; S36 tasks screen: status filters, grouping, bulk update and CSV export against GET /api/v1/action-items
-Push tasks to Jira Linear Asana ClickUp or Trello,actions,should,yes,no,P4
+Push tasks to Jira Linear Asana ClickUp or Trello,actions,should,yes,yes,S36: push a task to Jira, Linear, Asana, ClickUp, Trello or monday.com via POST /api/v1/action-items/[id]/push; personal API tokens (BYOK) are stored encrypted in integration_connections.credentials_enc
 Two-way task status sync,actions,could,no,no,P5
-Manual task creation,actions,should,yes,no,P2
+Manual task creation,actions,should,yes,yes,S36: New task dialog (meeting, text, owner, due date) posts to /api/v1/action-items
 Keyword search across meetings,search,must,yes,yes,P0; done in replica-backend: tsvector plus trigram search over transcript segments
 Filter by speaker date folder channel and language,search,must,yes,partial,P1; search accepts speaker and date filters
 Semantic search over transcripts and notes,search,must,yes,partial,P1; embeddings job and search route exist, needs pgvector
@@ -167,14 +167,14 @@ Per-member adoption report,analytics,could,yes,no,P5
 Slack share and auto-post,integrations,must,yes,no,P4
 Notion export,integrations,should,yes,no,P4
 CRM sync HubSpot Salesforce Pipedrive Attio,integrations,should,yes,no,P4
-Project tool sync Jira Linear Asana ClickUp Monday Trello,integrations,should,yes,no,P4
+Project tool sync Jira Linear Asana ClickUp Monday Trello,integrations,should,yes,yes,S44: six project tools in the catalogue, each connected with a personal API token and a target (Jira project, Linear team, Asana project, ClickUp/Trello list, monday board); tokens encrypted at rest
 Google Drive and Docs export,integrations,should,yes,no,P4
-Zapier or n8n generic automation bridge,integrations,should,yes,no,P4
+Zapier or n8n generic automation bridge,integrations,should,yes,partial,Generic webhook endpoint with signing and retries is the bridge; no Zapier/n8n vendor app
 Confluence and SharePoint export,integrations,could,yes,no,P5
 Snowflake or S3 warehouse export,integrations,could,yes,no,P5
 Calendar and email provider integrations,integrations,must,yes,yes,S44: integration hub over GET/POST /api/v1/integrations and DELETE /api/v1/integrations/[key] with category tabs, search and connect/disconnect
 REST API with scoped keys,api,must,yes,yes,S45: GET/POST /api/v1/api-keys and DELETE /api/v1/api-keys/[id] to create, list and revoke scoped keys; the raw key is shown once
-Webhooks with signing and retries,api,must,yes,yes,S45: GET/POST /api/v1/webhooks, PATCH/DELETE /api/v1/webhooks/[id] and GET /api/v1/webhooks/[id]/deliveries for endpoints, delivery log and status
+Webhooks with signing and retries,api,must,yes,yes,S45: endpoints, HMAC-SHA256 signing (Click-Signature over timestamp.body), delivery log with status/attempts/response/next retry, automatic backoff retries and a manual retry button; events: meeting.created, meeting.ready, meeting.failed, transcript.ready, note.ready, action_item.created, action_item.updated
 MCP server for external AI clients,api,should,yes,yes,S46: /app/developers/mcp documents the endpoint, available tools, and client snippets for Claude Desktop, Cursor and generic MCP clients
 GraphQL read API,api,could,yes,no,P5; Fireflies GraphQL
 Rate limits and quotas,api,should,yes,yes,should; done in replica-backend: rateLimit helper applied to auth endpoints

@@ -22,6 +22,7 @@ import {
   type IntegrationCatalogRow,
   type IntegrationConnectionRow,
 } from "@/lib/api";
+import { taskToolSpec, taskToolTarget, type ToolSpec } from "@/lib/taskTools";
 
 export default function IntegrationsPage() {
   const toast = useToast();
@@ -35,6 +36,7 @@ export default function IntegrationsPage() {
   const [configText, setConfigText] = useState("{}");
   const [configError, setConfigError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [toolValues, setToolValues] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -74,27 +76,83 @@ export default function IntegrationsPage() {
     });
   }, [catalog, category, query]);
 
+  const openConnect = (item: IntegrationCatalogRow, connection?: IntegrationConnectionRow) => {
+    setConnecting(item);
+    setConfigError(null);
+    setConfigText("{}");
+    const spec = taskToolSpec(item.key);
+    if (!spec) {
+      setToolValues({});
+      return;
+    }
+    // Config is safe to show again; the saved token never leaves the server.
+    const values: Record<string, string> = {};
+    for (const field of spec.configFields) {
+      values[field.name] = String(connection?.config?.[field.name] ?? "");
+    }
+    setToolValues(values);
+  };
+
+  const closeConnect = () => {
+    setConnecting(null);
+    setConfigText("{}");
+    setConfigError(null);
+    setToolValues({});
+  };
+
+  const connectingSpec: ToolSpec | undefined = useMemo(
+    () => (connecting ? taskToolSpec(connecting.key) : undefined),
+    [connecting],
+  );
+  const connectingExisting = connecting ? connectionByKey.get(connecting.key) : undefined;
+
   const connect = async () => {
     if (!connecting) return;
+    const spec = taskToolSpec(connecting.key);
     let config: Record<string, unknown> = {};
-    try {
-      config = JSON.parse(configText || "{}");
-      if (typeof config !== "object" || Array.isArray(config)) throw new Error("not an object");
-    } catch {
-      setConfigError("Config must be a JSON object.");
-      return;
+    let credentials: Record<string, string> | undefined;
+
+    if (spec) {
+      config = {};
+      credentials = {};
+      for (const field of [...spec.configFields, ...spec.credentialFields]) {
+        const value = (toolValues[field.name] ?? "").trim();
+        if (field.required && !value) {
+          setConfigError(`${field.label} is required.`);
+          return;
+        }
+        if (!value) continue;
+        if (spec.credentialFields.includes(field)) credentials[field.name] = value;
+        else config[field.name] = value;
+      }
+    } else {
+      try {
+        config = JSON.parse(configText || "{}");
+        if (typeof config !== "object" || Array.isArray(config)) throw new Error("not an object");
+      } catch {
+        setConfigError("Config must be a JSON object.");
+        return;
+      }
     }
     setConfigError(null);
     setSaving(true);
-    const result = await connectIntegration({ integrationKey: connecting.key, config });
+    const result = await connectIntegration({
+      integrationKey: connecting.key,
+      config,
+      credentials,
+    });
     setSaving(false);
     if (result.error) {
       setConfigError(result.error);
       return;
     }
-    setConnecting(null);
-    setConfigText("{}");
-    toast.push({ tone: "success", title: `${connecting.name} connected` });
+    const name = connecting.name;
+    const wasExisting = Boolean(connectingExisting);
+    closeConnect();
+    toast.push({
+      tone: "success",
+      title: wasExisting ? `${name} updated` : `${name} connected`,
+    });
     await load();
   };
 
@@ -183,6 +241,7 @@ export default function IntegrationsPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {visible.map((item) => {
             const connection = connectionByKey.get(item.key);
+            const spec = taskToolSpec(item.key);
             return (
               <Card key={item.key} className="flex flex-col">
                 <CardHeader
@@ -202,6 +261,12 @@ export default function IntegrationsPage() {
                   <p className="text-xs text-text-muted">
                     {item.scopes.length ? item.scopes.join(", ") : "No scopes required"}
                   </p>
+                  {spec && connection ? (
+                    <p className="text-xs text-text">
+                      {taskToolTarget(spec, connection.config)}
+                      {connection.hasCredentials ? " · token saved" : " · no token saved"}
+                    </p>
+                  ) : null}
                   {connection ? (
                     <p className="text-xs text-text-muted">
                       Connected by {connection.connectedByName} on{" "}
@@ -210,11 +275,18 @@ export default function IntegrationsPage() {
                   ) : null}
                   <div className="mt-auto flex items-center gap-2 pt-2">
                     {connection ? (
-                      <Button variant="danger" size="sm" onClick={() => void disconnect(item.key, item.name)}>
-                        Disconnect
-                      </Button>
+                      <>
+                        <Button variant="danger" size="sm" onClick={() => void disconnect(item.key, item.name)}>
+                          Disconnect
+                        </Button>
+                        {spec ? (
+                          <Button variant="secondary" size="sm" onClick={() => openConnect(item, connection)}>
+                            Reconfigure
+                          </Button>
+                        ) : null}
+                      </>
                     ) : (
-                      <Button size="sm" onClick={() => setConnecting(item)}>
+                      <Button size="sm" onClick={() => openConnect(item)}>
                         Connect
                       </Button>
                     )}
@@ -238,46 +310,81 @@ export default function IntegrationsPage() {
 
       <Dialog
         open={connecting !== null}
-        onClose={() => {
-          setConnecting(null);
-          setConfigText("{}");
-          setConfigError(null);
-        }}
-        title={connecting ? `Connect ${connecting.name}` : "Connect"}
+        onClose={closeConnect}
+        title={
+          connecting
+            ? `${connectingExisting ? "Reconfigure" : "Connect"} ${connecting.name}`
+            : "Connect"
+        }
       >
         <div className="grid gap-3">
-          <p className="text-sm text-text-muted">
-            This instance stores the connection locally. For OAuth providers, complete the provider flow in
-            a new tab and paste the resulting config here.
-          </p>
-          <Field
-            label="Config (JSON)"
-            htmlFor="integration-config"
-            hint="Optional settings for this integration."
-            error={configError ?? undefined}
-          >
-            <Textarea
-              id="integration-config"
-              rows={6}
-              value={configText}
-              onChange={(event) => setConfigText(event.target.value)}
-            />
-          </Field>
+          {connectingSpec ? (
+            <>
+              <p className="text-sm text-text-muted">
+                {connectingSpec.name} is connected with a personal API token. The token is encrypted on this
+                instance and never shown again.
+              </p>
+              {connectingSpec.configFields.map((field) => (
+                <Field
+                  key={field.name}
+                  label={field.label}
+                  htmlFor={`tool-${field.name}`}
+                  hint={field.hint}
+                >
+                  <Input
+                    id={`tool-${field.name}`}
+                    value={toolValues[field.name] ?? ""}
+                    placeholder={field.placeholder}
+                    onChange={(event) =>
+                      setToolValues((prev) => ({ ...prev, [field.name]: event.target.value }))
+                    }
+                  />
+                </Field>
+              ))}
+              {connectingSpec.credentialFields.map((field) => (
+                <Field key={field.name} label={field.label} htmlFor={`tool-${field.name}`}>
+                  <Input
+                    id={`tool-${field.name}`}
+                    type={field.secret ? "password" : "text"}
+                    autoComplete="off"
+                    value={toolValues[field.name] ?? ""}
+                    placeholder={field.placeholder}
+                    onChange={(event) =>
+                      setToolValues((prev) => ({ ...prev, [field.name]: event.target.value }))
+                    }
+                  />
+                </Field>
+              ))}
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-text-muted">
+                This instance stores the connection locally. For OAuth providers, complete the provider flow in
+                a new tab and paste the resulting config here.
+              </p>
+              <Field
+                label="Config (JSON)"
+                htmlFor="integration-config"
+                hint="Optional settings for this integration."
+                error={configError ?? undefined}
+              >
+                <Textarea
+                  id="integration-config"
+                  rows={6}
+                  value={configText}
+                  onChange={(event) => setConfigText(event.target.value)}
+                />
+              </Field>
+            </>
+          )}
+          {connectingSpec && configError ? <p className="text-xs text-danger">{configError}</p> : null}
         </div>
         <div className="mt-6 flex justify-end gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setConnecting(null);
-              setConfigText("{}");
-              setConfigError(null);
-            }}
-          >
+          <Button variant="ghost" size="sm" onClick={closeConnect}>
             Cancel
           </Button>
           <Button size="sm" loading={saving} onClick={() => void connect()}>
-            Connect
+            {connectingExisting ? "Save" : "Connect"}
           </Button>
         </div>
       </Dialog>

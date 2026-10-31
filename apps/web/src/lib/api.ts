@@ -279,6 +279,14 @@ async function apiFetch<T>(url: string, init?: RequestInit): Promise<ApiResult<T
   }
 }
 
+export interface ActionItemPushRef {
+  provider: string;
+  externalId: string;
+  url: string | null;
+  label: string;
+  pushedAt: string;
+}
+
 export interface ActionItemRow {
   id: string;
   meetingId: string;
@@ -288,10 +296,41 @@ export interface ActionItemRow {
   dueAt: string | null;
   status: string;
   sourceSegmentId: string | null;
+  pushedRefs: ActionItemPushRef[];
 }
 
 export async function fetchActionItems(): Promise<ApiResult<{ items: ActionItemRow[] }>> {
   return apiFetch<{ items: ActionItemRow[] }>("/api/v1/action-items");
+}
+
+export async function createActionItem(input: {
+  meetingId: string;
+  text: string;
+  assigneeName?: string;
+  dueAt?: string;
+}): Promise<ApiResult<{ item: { id: string } }>> {
+  return apiFetch<{ item: { id: string } }>("/api/v1/action-items", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+/** Sends one task to a connected project tool. */
+export async function pushActionItem(
+  id: string,
+  provider: string,
+): Promise<ApiResult<{ ok: boolean; ref: ActionItemPushRef }>> {
+  return apiFetch<{ ok: boolean; ref: ActionItemPushRef }>(`/api/v1/action-items/${id}/push`, {
+    method: "POST",
+    body: JSON.stringify({ provider }),
+  });
+}
+
+/** The meetings a new task can be attached to. */
+export async function fetchMeetingOptions(): Promise<
+  ApiResult<{ meetings: Array<{ id: string; title: string }> }>
+> {
+  return apiFetch<{ meetings: Array<{ id: string; title: string }> }>("/api/v1/meetings?limit=100");
 }
 
 export async function patchActionItem(
@@ -800,6 +839,7 @@ export interface WebhookDeliveryRow {
   status: string;
   attempts: number;
   responseCode: number | null;
+  nextRetryAt: string | null;
   createdAt: string;
 }
 
@@ -839,6 +879,16 @@ export async function fetchWebhookDeliveries(
   return apiFetch<{ deliveries: WebhookDeliveryRow[] }>(`/api/v1/webhooks/${id}/deliveries`);
 }
 
+/** Sends a failed delivery again straight away. */
+export async function retryWebhookDelivery(
+  endpointId: string,
+  deliveryId: string,
+): Promise<ApiResult<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>(`/api/v1/webhooks/${endpointId}/deliveries/${deliveryId}/retry`, {
+    method: "POST",
+  });
+}
+
 export interface IntegrationCatalogRow {
   key: string;
   name: string;
@@ -853,6 +903,7 @@ export interface IntegrationConnectionRow {
   integrationKey: string;
   status: "connected" | "error" | "revoked";
   config: Record<string, unknown>;
+  hasCredentials: boolean;
   connectedAt: string;
   connectedByName: string | null;
 }
@@ -868,6 +919,7 @@ export async function fetchIntegrations(): Promise<
 export async function connectIntegration(input: {
   integrationKey: string;
   config?: Record<string, unknown>;
+  credentials?: Record<string, string>;
 }): Promise<ApiResult<{ id: string }>> {
   return apiFetch<{ id: string }>("/api/v1/integrations", {
     method: "POST",

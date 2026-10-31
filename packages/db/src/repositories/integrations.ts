@@ -16,6 +16,7 @@ export interface IntegrationConnectionRow {
   integrationKey: string;
   status: "connected" | "error" | "revoked";
   config: Record<string, unknown>;
+  hasCredentials: boolean;
   connectedAt: string;
   connectedByName: string | null;
 }
@@ -43,6 +44,7 @@ export async function listIntegrations(ctx: TenantContext): Promise<{
         integrationKey: integrationConnections.integrationKey,
         status: integrationConnections.status,
         config: integrationConnections.config,
+        credentialsEnc: integrationConnections.credentialsEnc,
         connectedAt: integrationConnections.connectedAt,
         connectedByName: sql<string>`coalesce((select u.name from users u where u.id = ${integrationConnections.userId}), 'Unknown')`,
       })
@@ -63,6 +65,7 @@ export async function listIntegrations(ctx: TenantContext): Promise<{
         integrationKey: row.integrationKey,
         status: row.status as IntegrationConnectionRow["status"],
         config: (row.config ?? {}) as Record<string, unknown>,
+        hasCredentials: Boolean(row.credentialsEnc),
         connectedAt: row.connectedAt.toISOString(),
         connectedByName: row.connectedByName,
       })),
@@ -72,9 +75,17 @@ export async function listIntegrations(ctx: TenantContext): Promise<{
 
 export async function connectIntegration(
   ctx: TenantContext,
-  input: { integrationKey: string; config?: Record<string, unknown> },
+  input: { integrationKey: string; config?: Record<string, unknown>; credentialsEnc?: string | null },
 ): Promise<{ id: string }> {
   return withTenant(ctx, async (tx) => {
+    const values = {
+      config: input.config ?? {},
+      status: "connected" as const,
+      updatedAt: new Date(),
+      ...(input.credentialsEnc === undefined
+        ? {}
+        : { credentialsEnc: input.credentialsEnc }),
+    };
     const rows = await tx
       .insert(integrationConnections)
       .values({
@@ -82,25 +93,66 @@ export async function connectIntegration(
         userId: ctx.userId,
         integrationKey: input.integrationKey,
         config: input.config ?? {},
+        credentialsEnc: input.credentialsEnc ?? null,
         status: "connected",
       })
       .onConflictDoUpdate({
         target: [integrationConnections.orgId, integrationConnections.integrationKey, integrationConnections.userId],
-        set: {
-          config: input.config ?? {},
-          status: "connected",
-          updatedAt: new Date(),
-        },
+        set: values,
       })
       .returning({ id: integrationConnections.id });
     return { id: rows[0].id };
   });
 }
 
+/** The connection with its encrypted credentials, for the server-side callers. */
+export async function getIntegrationConnection(
+  ctx: TenantContext,
+  key: string,
+): Promise<{
+  id: string;
+  integrationKey: string;
+  status: string;
+  config: Record<string, unknown>;
+  credentialsEnc: string | null;
+} | null> {
+  return withTenant(ctx, async (tx) => {
+    const rows = await tx
+      .select({
+        id: integrationConnections.id,
+        integrationKey: integrationConnections.integrationKey,
+        status: integrationConnections.status,
+        config: integrationConnections.config,
+        credentialsEnc: integrationConnections.credentialsEnc,
+      })
+      .from(integrationConnections)
+      .where(
+        and(
+          eq(integrationConnections.orgId, ctx.orgId),
+          eq(integrationConnections.integrationKey, key),
+        ),
+      )
+      .limit(1);
+    const row = rows[0];
+    if (!row) return null;
+    return {
+      id: row.id,
+      integrationKey: row.integrationKey,
+      status: row.status,
+      config: (row.config ?? {}) as Record<string, unknown>,
+      credentialsEnc: row.credentialsEnc ?? null,
+    };
+  });
+}
+
 export async function updateIntegration(
   ctx: TenantContext,
   key: string,
-  patch: { config?: Record<string, unknown>; status?: "connected" | "error" | "revoked" },
+  patch: {
+    config?: Record<string, unknown>;
+    status?: "connected" | "error" | "revoked";
+    credentialsEnc?: string | null;
+  },
 ): Promise<{ ok: boolean }> {
   return withTenant(ctx, async (tx) => {
     const rows = await tx
@@ -117,6 +169,7 @@ export async function updateIntegration(
     const values: Record<string, unknown> = { updatedAt: new Date() };
     if (patch.config !== undefined) values.config = patch.config;
     if (patch.status !== undefined) values.status = patch.status;
+    if (patch.credentialsEnc !== undefined) values.credentialsEnc = patch.credentialsEnc;
     await tx
       .update(integrationConnections)
       .set(values)

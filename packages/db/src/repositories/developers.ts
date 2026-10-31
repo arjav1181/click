@@ -29,6 +29,7 @@ export interface WebhookDeliveryRow {
   status: string;
   attempts: number;
   responseCode: number | null;
+  nextRetryAt: string | null;
   createdAt: string;
 }
 
@@ -153,22 +154,21 @@ export async function listWebhooks(ctx: TenantContext): Promise<WebhookEndpointR
 
 export async function createWebhook(
   ctx: TenantContext,
-  input: { url: string; events: string[] },
-): Promise<{ id: string; secret: string }> {
-  const secret = `whsec_${randomToken(32)}`;
-  const secretHash = sha256(secret);
+  input: { url: string; events: string[]; secretHash: string; secretEnc: string },
+): Promise<{ id: string }> {
   return withTenant(ctx, async (tx) => {
     const rows = await tx
       .insert(webhookEndpoints)
       .values({
         orgId: ctx.orgId,
         url: input.url.slice(0, 2000),
-        secretHash,
+        secretHash: input.secretHash,
+        secretEnc: input.secretEnc,
         events: input.events.slice(0, 30),
         active: true,
       })
       .returning({ id: webhookEndpoints.id });
-    return { id: rows[0].id, secret };
+    return { id: rows[0].id };
   });
 }
 
@@ -222,6 +222,7 @@ export async function listWebhookDeliveries(
         status: webhookDeliveries.status,
         attempts: webhookDeliveries.attempts,
         responseCode: webhookDeliveries.responseCode,
+        nextRetryAt: webhookDeliveries.nextRetryAt,
         createdAt: webhookDeliveries.createdAt,
       })
       .from(webhookDeliveries)
@@ -237,7 +238,154 @@ export async function listWebhookDeliveries(
       status: row.status,
       attempts: row.attempts,
       responseCode: row.responseCode ?? null,
+      nextRetryAt: row.nextRetryAt?.toISOString() ?? null,
       createdAt: row.createdAt.toISOString(),
     }));
+  });
+}
+
+/** Active endpoints in the workspace that subscribe to one event. */
+export async function listWebhookEndpointsForEvent(
+  ctx: TenantContext,
+  event: string,
+): Promise<WebhookEndpointRow[]> {
+  return withTenant(ctx, async (tx) => {
+    const rows = await tx
+      .select({
+        id: webhookEndpoints.id,
+        url: webhookEndpoints.url,
+        events: webhookEndpoints.events,
+        active: webhookEndpoints.active,
+        createdAt: webhookEndpoints.createdAt,
+      })
+      .from(webhookEndpoints)
+      .where(
+        and(
+          eq(webhookEndpoints.orgId, ctx.orgId),
+          eq(webhookEndpoints.active, true),
+          sql`${webhookEndpoints.events} @> ARRAY[${event}]::text[]`,
+        ),
+      );
+    return rows.map((row) => ({
+      id: row.id,
+      url: row.url,
+      events: row.events ?? [],
+      active: row.active,
+      createdAt: row.createdAt.toISOString(),
+    }));
+  });
+}
+
+/** The endpoint plus the encrypted signing secret, for the delivery worker. */
+export async function getWebhookEndpoint(
+  ctx: TenantContext,
+  id: string,
+): Promise<{ id: string; url: string; active: boolean; secretEnc: string | null } | null> {
+  return withTenant(ctx, async (tx) => {
+    const rows = await tx
+      .select({
+        id: webhookEndpoints.id,
+        url: webhookEndpoints.url,
+        active: webhookEndpoints.active,
+        secretEnc: webhookEndpoints.secretEnc,
+      })
+      .from(webhookEndpoints)
+      .where(and(eq(webhookEndpoints.id, id), eq(webhookEndpoints.orgId, ctx.orgId)))
+      .limit(1);
+    const row = rows[0];
+    if (!row) return null;
+    return { id: row.id, url: row.url, active: row.active, secretEnc: row.secretEnc ?? null };
+  });
+}
+
+export interface WebhookDeliveryDetail {
+  id: string;
+  endpointId: string;
+  event: string;
+  payload: Record<string, unknown>;
+  status: string;
+  attempts: number;
+  responseCode: number | null;
+  nextRetryAt: string | null;
+}
+
+export async function createWebhookDelivery(
+  ctx: TenantContext,
+  input: { endpointId: string; eventId: string; event: string; payload: Record<string, unknown> },
+): Promise<{ id: string } | null> {
+  return withTenant(ctx, async (tx) => {
+    const rows = await tx
+      .insert(webhookDeliveries)
+      .values({
+        orgId: ctx.orgId,
+        endpointId: input.endpointId,
+        eventId: input.eventId,
+        event: input.event,
+        payload: input.payload,
+        status: "pending",
+      })
+      .onConflictDoNothing()
+      .returning({ id: webhookDeliveries.id });
+    return rows[0] ? { id: rows[0].id } : null;
+  });
+}
+
+export async function getWebhookDelivery(
+  ctx: TenantContext,
+  id: string,
+): Promise<WebhookDeliveryDetail | null> {
+  return withTenant(ctx, async (tx) => {
+    const rows = await tx
+      .select({
+        id: webhookDeliveries.id,
+        endpointId: webhookDeliveries.endpointId,
+        event: webhookDeliveries.event,
+        payload: webhookDeliveries.payload,
+        status: webhookDeliveries.status,
+        attempts: webhookDeliveries.attempts,
+        responseCode: webhookDeliveries.responseCode,
+        nextRetryAt: webhookDeliveries.nextRetryAt,
+      })
+      .from(webhookDeliveries)
+      .where(and(eq(webhookDeliveries.id, id), eq(webhookDeliveries.orgId, ctx.orgId)))
+      .limit(1);
+    const row = rows[0];
+    if (!row) return null;
+    return {
+      id: row.id,
+      endpointId: row.endpointId,
+      event: row.event,
+      payload: (row.payload ?? {}) as Record<string, unknown>,
+      status: row.status,
+      attempts: row.attempts,
+      responseCode: row.responseCode ?? null,
+      nextRetryAt: row.nextRetryAt?.toISOString() ?? null,
+    };
+  });
+}
+
+export async function updateWebhookDelivery(
+  ctx: TenantContext,
+  id: string,
+  patch: {
+    status?: string;
+    attempts?: number;
+    responseCode?: number | null;
+    nextRetryAt?: Date | null;
+  },
+): Promise<{ ok: boolean }> {
+  return withTenant(ctx, async (tx) => {
+    const values: Record<string, unknown> = {};
+    if (patch.status !== undefined) values.status = patch.status;
+    if (patch.attempts !== undefined) values.attempts = patch.attempts;
+    if (patch.responseCode !== undefined) values.responseCode = patch.responseCode;
+    if (patch.nextRetryAt !== undefined) values.nextRetryAt = patch.nextRetryAt;
+    if (Object.keys(values).length === 0) return { ok: true };
+    const rows = await tx
+      .update(webhookDeliveries)
+      .set(values)
+      .where(and(eq(webhookDeliveries.id, id), eq(webhookDeliveries.orgId, ctx.orgId)))
+      .returning({ id: webhookDeliveries.id });
+    return { ok: rows.length > 0 };
   });
 }

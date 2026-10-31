@@ -152,7 +152,9 @@ traces or internal messages. Mutating routes check the `Origin` header against
 | GET | `/api/v1/meetings/[id]/export` | member |
 | POST, DELETE | `/api/v1/meetings/[id]/bot` | member |
 | GET | `/api/v1/action-items` | member |
+| POST | `/api/v1/action-items` | member |
 | PATCH, DELETE | `/api/v1/action-items/[id]` | member |
+| POST | `/api/v1/action-items/[id]/push` | member |
 | GET | `/api/v1/search` | member |
 | POST | `/api/v1/search/semantic` | member |
 | POST | `/api/v1/uploads` | member |
@@ -172,6 +174,22 @@ traces or internal messages. Mutating routes check the `Origin` header against
 | GET | `/api/v1/calendar-events` | member |
 | PATCH | `/api/v1/calendar-events/[id]` | member |
 
+### Developers and integrations
+| method | path | role |
+| --- | --- | --- |
+| GET, POST | `/api/v1/webhooks` | owner, admin |
+| GET, PATCH, DELETE | `/api/v1/webhooks/[id]` | owner, admin |
+| GET | `/api/v1/webhooks/[id]/deliveries` | owner, admin |
+| POST | `/api/v1/webhooks/[id]/deliveries/[deliveryId]/retry` | owner, admin |
+| GET, POST | `/api/v1/integrations` | member |
+| PATCH, DELETE | `/api/v1/integrations/[key]` | member |
+| GET, POST | `/api/v1/api-keys` | owner, admin |
+
+The webhook secret is returned once, on creation, and stored hashed plus
+encrypted; it is never read back. Integration credentials (personal API
+tokens, BYOK) are encrypted at rest and the API only reports
+`hasCredentials: true`.
+
 ### Administration
 | method | path | role |
 | --- | --- | --- |
@@ -187,7 +205,8 @@ replay.
 
 ## 5. Jobs
 
-Six queues: `transcribe`, `summarize`, `embed`, `email`, `calendar`, `bot`.
+Seven queues: `transcribe`, `summarize`, `embed`, `email`, `calendar`, `bot`,
+`webhook`.
 
 With `REDIS_URL` set, jobs go through BullMQ (3 attempts, exponential backoff)
 and `apps/worker` runs the workers. Without Redis, the web process runs the
@@ -329,10 +348,17 @@ index skipped — the schema itself is unchanged):
    implemented (`packages/backend/src/calendar.ts`, `calendarSync.ts`). The
    polling loop itself still has to be triggered by a scheduler: the queue
    job exists but nothing calls it on a timer yet.
-8. **Webhooks** — the tables exist and audit events are written, but outgoing
-   webhook delivery is not implemented.
-9. **No automated browser tests yet** — the API is exercised by the smoke test
-   above and by the RLS test; there is no Playwright suite.
+8. **Webhooks** — done. Endpoints sign every delivery with HMAC-SHA256 over
+   `<timestamp>.<body>` (`Click-Signature`), retries run with backoff and every
+   attempt is kept in the delivery log (`packages/backend/src/webhooks.ts`).
+   The seven events are emitted from the real emitters.
+9. **Project tool task push** — done for Jira, Linear, Asana, ClickUp, Trello
+   and monday.com, but only with a personal API token the workspace brings
+   along (BYOK). There is no Click app registered with any vendor, so the
+   connections are per-workspace rather than per-user, and two-way status sync
+   is not implemented.
+10. **No automated browser tests yet** — the API is exercised by the smoke test
+    above and by the RLS test; there is no Playwright suite.
 
 ## 12. Next milestone (M2 — bot capture)
 

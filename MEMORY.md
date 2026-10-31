@@ -43,10 +43,22 @@ Repo layout: pnpm workspace + Turborepo — apps/web, apps/worker, apps/asr; pac
 - `packages/backend/src/calendar.ts`: Google Calendar + Microsoft Graph OAuth (PKCE, refresh tokens, two-week event polling, account email lookup).
 - `packages/backend/src/calendarSync.ts`: `syncCalendarConnection` (upsert events → evaluate rules → create scheduled meeting + bot job → enqueue bot), `resolveAutoJoin` (per-event override > first matching rule > per-calendar default), `providerForUrl` (zoom/teams/meet/webex).
 - `packages/backend/src/botService.ts`: HMAC-signed `POST {BOT_SERVICE_URL}/v1/join` client for the `apps/bot` service.
-- New queues `calendar` + `bot` in `packages/backend/src/queue.ts` (queue name → job name mapping lives in `JOB_NAMES`); `apps/worker` starts workers for all six queues.
+- New queues `calendar` + `bot` in `packages/backend/src/queue.ts` (queue name → job name mapping lives in `JOB_NAMES`); `apps/worker` starts workers for every queue (seven after the webhook queue was added).
 - Routes: `GET/POST /api/v1/calendars`, `PATCH/DELETE /api/v1/calendars/[id]`, `POST /api/v1/calendars/[id]/sync`, `GET /api/v1/calendars/providers`, `GET /api/v1/calendars/providers/[provider]/start|callback`, `GET/POST /api/v1/calendar-rules`, `DELETE /api/v1/calendar-rules/[id]`, `GET /api/v1/calendar-events`, `PATCH /api/v1/calendar-events/[id]`.
 - New migration `packages/db/migrations/0002_calendar_bot_live.sql` (0000 stays frozen — checksums are locked): `calendar_connections.auto_join`, nullable `calendar_events.auto_join`, new `calendar_rules` table, `bot_jobs.calendar_event_id/provider_config/consent_notice_sent_at/no_show_notified_at`, `webhook_endpoints.secret_enc`.
 - OAuth is not configured in this sandbox: the UI shows a banner and the endpoints return `503 calendar_not_configured` / `409 calendar_not_connected` instead of a 500.
+
+## Webhooks + task push (S36/S44/S45) — DONE
+- `packages/backend/src/webhooks.ts`: `signWebhookBody` (HMAC-SHA256 over `<timestamp>.<body>`), `emitWebhookEvent` (never throws), `deliverWebhook` (attempts, response code, backoff 15/30/60/120/300s, exhausted state), `retryWebhookDelivery` (manual retry resets attempts).
+- Headers: `Click-Signature: sha256=<hex>`, `Click-Timestamp`, `Click-Event`, `Click-Delivery`.
+- Events: `meeting.created`, `meeting.ready`, `meeting.failed`, `transcript.ready`, `note.ready`, `action_item.created`, `action_item.updated`.
+- `packages/backend/src/taskPush.ts`: Jira (REST v3 + Basic + ADF), Linear (GraphQL `issueCreate`, key in `Authorization`), Asana (`/api/1.0/tasks`, Bearer), ClickUp (`/api/v2/list/{id}/task`), Trello (`/1/cards`), monday.com (GraphQL `create_item`). `providerFetch` maps network errors to readable messages.
+- Auth: personal API tokens (BYOK) encrypted in `integration_connections.credentials_enc`; targets in `config`. No vendor app registration possible, so connections are per-workspace.
+- New queue `webhook` (seven queues total) + `webhook-deliver` job; `enqueue(..., { delayMs })` uses `unref()`'d `setTimeout` in inline (no Redis) mode.
+- Routes: `POST /api/v1/webhooks` returns the secret once (hashed + encrypted), `POST /api/v1/webhooks/[id]/deliveries/[deliveryId]/retry`, `POST /api/v1/action-items/[id]/push`.
+- New migration `packages/db/migrations/0003_task_push.sql` (clickup/trello/monday catalogue rows, jira/linear/asana flipped to `api_key`); `replica/schema.sql` seed updated to match.
+- Smoke tests (25/25 + 11/11) live in `.data/smoke/` (gitignored); they prove signing, backoff, manual retry, 403/409/502 paths and that tokens are never returned.
+- Not exercised end-to-end: live Jira/Linear/Asana/ClickUp/Trello/monday.com calls (no vendor credentials in this sandbox).
 
 ## Schema (replica/schema.sql)
 - 64 tables, RLS enabled on every tenant table, policies in `replica/schema.sql` and `packages/db/migrations/0000_init.sql`.
@@ -101,13 +113,14 @@ M0 foundation → M1 vertical slice (upload/transcribe/summary/search) → M2 bo
 5. Trademark sweep for "Click".
 
 ## Next steps
-- /replica-build M0/M1 done. /replica-backend done (see Backend phase above). Next: /replica-build M2 — bot capture (Zoom RTMS, Google Meet Media API with browser-bot fallback, live segment streaming, consent notice), then M3 workspace screens.
-- Known gaps to close later: SAML SSO, multi-workspace switching, outgoing webhooks, the `apps/bot` provider clients (Zoom/Meet/Teams), live segment streaming, Playwright suite, response security headers.
+- Locked build order (user-approved): 1) webhooks + task push ✅ → 2) multi-workspace schema change (membership table + workspace switcher) → 3) Playwright bot adapter (stealth + headed, plus research into other capture paths) → 4) thin real client apps (Electron desktop, Manifest V3 extension, mobile PWA) → 5) live streaming + in-meeting AI, transcript intelligence, governance (SCIM, security headers, IP allowlist, TOTP, SSO enforcement) → 6) final QA (replica-test phase).
+- Known gaps to close later: SAML SSO (future plan only, OIDC stays supported), two-way task status sync, the `apps/bot` provider clients (Zoom/Meet/Teams), Playwright browser test suite, response security headers.
+- The user wants everything built and iterated before the test phase starts.
 - Record in MEMORY.md after each phase.
 
 ## Notes
 - Screenshots of originals in replica/screens/ are reference only, never shipped.
-- Local Postgres 17 at /nix/store/269nimkimaaivb4z46bjc1rnjv9jpc0l-postgresql-17.6/bin; run on port 55432 (data dir /tmp/opencode/pgdata); Docker daemon not running; pgvector extension absent locally (patched migration copy under /tmp/opencode/migrations-novector, applied via MIGRATIONS_DIR).
+- Local Postgres (PostgreSQL 16.15, `initdb`/`pg_ctl` on PATH) runs on port 55432 with the data dir under `fireflies/.data/pgdata` (gitignored, survives restarts — `/tmp` is wiped on every restart). Docker daemon not running; pgvector extension absent locally (patched migration copy under `.data/migrations-novector`, applied via `MIGRATIONS_DIR`).
 - User prefers decisive action; avoid long pauses.
 - Do not touch /home/runner/workspace/app, components, lib, prisma, replica at workspace root (Stonic).
 - Docs live in `docs/self-hosting.md` (deployment) and `docs/development.md` (code layout and rules); `replica/backend.md` is the backend reference.

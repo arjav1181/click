@@ -1094,9 +1094,12 @@ insert into integrations (key, name, category, auth_kind, scopes, docs_url) valu
   ('notion','Notion','docs','oauth2','{"insertContent"}','https://developers.notion.com'),
   ('hubspot','HubSpot','crm','oauth2','{"crm.objects.contacts.write"}','https://developers.hubspot.com'),
   ('salesforce','Salesforce','crm','oauth2','{"api"}','https://developer.salesforce.com'),
-  ('jira','Jira','project','oauth2','{"write:jira-work"}','https://developer.atlassian.com'),
-  ('linear','Linear','project','oauth2','{"issues:create"}','https://developers.linear.app'),
-  ('asana','Asana','project','oauth2','{"tasks:write"}','https://developers.asana.com'),
+  ('jira','Jira','project','api_key','{"write:jira-work"}','https://developer.atlassian.com'),
+  ('linear','Linear','project','api_key','{"issues:create"}','https://developers.linear.app'),
+  ('asana','Asana','project','api_key','{"tasks:write"}','https://developers.asana.com'),
+  ('clickup','ClickUp','project','api_key','{"tasks:write"}','https://developer.clickup.com'),
+  ('trello','Trello','project','api_key','{"cards:write"}','https://developer.atlassian.com/cloud/trello/'),
+  ('monday','monday.com','project','api_key','{"items:write"}','https://developer.monday.com'),
   ('google_drive','Google Drive','storage','oauth2','{"drive.file"}','https://developers.google.com/drive'),
   ('webhook','Generic webhook','automation','webhook','{}',null);
 

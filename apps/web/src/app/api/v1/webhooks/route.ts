@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { developersRepo } from "@click/db";
+import { developersRepo, randomToken, sha256 } from "@click/db";
+import { encryptSecret } from "@click/backend";
 import { assertSameOrigin, handler, json, parseJson, clientIp, ApiError } from "@/server/http";
 import { requireOrgSession, requireRole } from "@/server/auth";
 import { recordAudit } from "@/server/audit";
@@ -30,9 +31,17 @@ export const POST = handler(async (request) => {
     throw new ApiError(422, "invalid_event", `Unknown events: ${invalid.join(", ")}.`);
   }
 
+  // The secret is shown once. It is stored encrypted so deliveries can be
+  // signed, and hashed so it can never be read back from the database.
+  const secret = `whsec_${randomToken(32)}`;
   const created = await developersRepo.createWebhook(
     { orgId: session.orgId, userId: session.id },
-    body,
+    {
+      url: body.url,
+      events: body.events,
+      secretHash: sha256(secret),
+      secretEnc: encryptSecret(secret),
+    },
   );
   await recordAudit(session, {
     action: "webhook.created",
@@ -41,5 +50,5 @@ export const POST = handler(async (request) => {
     metadata: { url: body.url, events: body.events },
     ip: clientIp(request),
   });
-  return json(created, { status: 201 });
+  return json({ id: created.id, secret }, { status: 201 });
 });

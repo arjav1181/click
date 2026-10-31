@@ -21,6 +21,7 @@ import {
   fetchApiKeys,
   fetchWebhooks,
   fetchWebhookDeliveries,
+  retryWebhookDelivery,
   revokeApiKey,
   updateWebhook,
   type ApiKeyRow,
@@ -64,6 +65,7 @@ export default function DevelopersPage() {
   const [deliveryEndpoint, setDeliveryEndpoint] = useState<WebhookEndpointRow | null>(null);
   const [deliveries, setDeliveries] = useState<WebhookDeliveryRow[]>([]);
   const [loadingDeliveries, setLoadingDeliveries] = useState(false);
+  const [retryingDelivery, setRetryingDelivery] = useState<string | null>(null);
 
   const loadKeys = useCallback(async () => {
     setLoadingKeys(true);
@@ -177,6 +179,19 @@ export default function DevelopersPage() {
     }
     toast.push({ tone: "success", title: "Webhook deleted" });
     await loadHooks();
+  };
+
+  const retryDelivery = async (delivery: WebhookDeliveryRow) => {
+    if (!deliveryEndpoint) return;
+    setRetryingDelivery(delivery.id);
+    const result = await retryWebhookDelivery(deliveryEndpoint.id, delivery.id);
+    setRetryingDelivery(null);
+    if (result.error) {
+      toast.push({ tone: "error", title: "Delivery could not be retried", description: result.error });
+      return;
+    }
+    toast.push({ tone: "success", title: "Delivery queued again" });
+    await loadDeliveries(deliveryEndpoint.id);
   };
 
   return (
@@ -496,7 +511,9 @@ export default function DevelopersPage() {
                   <th className="pb-2 pr-3">Status</th>
                   <th className="pb-2 pr-3">Attempts</th>
                   <th className="pb-2 pr-3">Response</th>
-                  <th className="pb-2">When</th>
+                  <th className="pb-2 pr-3">Next retry</th>
+                  <th className="pb-2 pr-3">When</th>
+                  <th className="pb-2" />
                 </tr>
               </thead>
               <tbody>
@@ -508,7 +525,7 @@ export default function DevelopersPage() {
                         tone={
                           delivery.status === "delivered"
                             ? "success"
-                            : delivery.status === "failed"
+                            : delivery.status === "failed" || delivery.status === "exhausted"
                               ? "danger"
                               : "neutral"
                         }
@@ -520,8 +537,23 @@ export default function DevelopersPage() {
                     <td className="py-2 pr-3 text-text-muted">
                       {delivery.responseCode ?? "—"}
                     </td>
-                    <td className="py-2 text-text-muted">
+                    <td className="py-2 pr-3 text-text-muted">
+                      {delivery.nextRetryAt ? new Date(delivery.nextRetryAt).toLocaleString() : "—"}
+                    </td>
+                    <td className="py-2 pr-3 text-text-muted">
                       {new Date(delivery.createdAt).toLocaleString()}
+                    </td>
+                    <td className="py-2 text-right">
+                      {delivery.status === "failed" || delivery.status === "exhausted" ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          loading={retryingDelivery === delivery.id}
+                          onClick={() => void retryDelivery(delivery)}
+                        >
+                          Retry
+                        </Button>
+                      ) : null}
                     </td>
                   </tr>
                 ))}

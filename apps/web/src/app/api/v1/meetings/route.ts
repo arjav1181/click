@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { meetingsRepo } from "@click/db";
+import { emitWebhookEvent } from "@click/backend";
 import { assertSameOrigin, handler, json, parseJson, clientIp } from "@/server/http";
 import { requireOrgSession } from "@/server/auth";
 import { recordAudit } from "@/server/audit";
@@ -44,6 +45,11 @@ export const POST = handler(async (request) => {
     targetId: meeting.id,
     metadata: { source: body.source },
     ip: clientIp(request),
+  });
+  await emitWebhookEvent(session.orgId, "meeting.created", {
+    meetingId: meeting.id,
+    title: meeting.title,
+    source: meeting.source,
   });
   return json({ meeting }, { status: 201 });
 });

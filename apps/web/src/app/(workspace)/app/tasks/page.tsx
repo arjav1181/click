@@ -7,13 +7,24 @@ import {
   Banner,
   Button,
   Card,
+  Dialog,
   EmptyState,
+  Field,
   Input,
   Select,
   Skeleton,
   useToast,
 } from "@click/ui";
-import { fetchActionItems, patchActionItem, type ActionItemRow } from "@/lib/api";
+import {
+  createActionItem,
+  fetchActionItems,
+  fetchIntegrations,
+  fetchMeetingOptions,
+  patchActionItem,
+  pushActionItem,
+  type ActionItemRow,
+} from "@/lib/api";
+import { taskToolSpec, taskToolTarget } from "@/lib/taskTools";
 
 type StatusFilter = "all" | "open" | "overdue" | "done";
 type GroupBy = "meeting" | "due" | "assignee";
@@ -85,6 +96,25 @@ export default function TasksPage() {
   const [selected, setSelected] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
 
+  // New task
+  const [newTaskOpen, setNewTaskOpen] = useState(false);
+  const [newTaskText, setNewTaskText] = useState("");
+  const [newTaskAssignee, setNewTaskAssignee] = useState("");
+  const [newTaskDue, setNewTaskDue] = useState("");
+  const [newTaskMeeting, setNewTaskMeeting] = useState("");
+  const [meetings, setMeetings] = useState<Array<{ id: string; title: string }>>([]);
+  const [newTaskError, setNewTaskError] = useState<string | null>(null);
+  const [newTaskSaving, setNewTaskSaving] = useState(false);
+
+  // Push to a project tool
+  const [pushItem, setPushItem] = useState<ActionItemRow | null>(null);
+  const [tools, setTools] = useState<
+    Array<{ key: string; name: string; target: string; hasCredentials: boolean }>
+  >([]);
+  const [toolsLoading, setToolsLoading] = useState(false);
+  const [pushError, setPushError] = useState<string | null>(null);
+  const [pushingTool, setPushingTool] = useState<string | null>(null);
+
   const load = () => {
     setLoading(true);
     setError(null);
@@ -101,6 +131,101 @@ export default function TasksPage() {
   };
 
   useEffect(load, []);
+
+  const openNewTask = async () => {
+    setNewTaskError(null);
+    setNewTaskOpen(true);
+    const result = await fetchMeetingOptions();
+    if (result.data) {
+      setMeetings(result.data.meetings);
+      setNewTaskMeeting((current) => current || result.data!.meetings[0]?.id || "");
+    } else {
+      setMeetings([]);
+      setNewTaskError(result.error ?? "We could not load your meetings.");
+    }
+  };
+
+  const createTask = async () => {
+    if (!newTaskText.trim()) {
+      setNewTaskError("Write what needs to be done.");
+      return;
+    }
+    if (!newTaskMeeting) {
+      setNewTaskError("Pick the meeting this task came from.");
+      return;
+    }
+    setNewTaskError(null);
+    setNewTaskSaving(true);
+    const result = await createActionItem({
+      meetingId: newTaskMeeting,
+      text: newTaskText.trim(),
+      assigneeName: newTaskAssignee.trim() || undefined,
+      dueAt: newTaskDue ? new Date(`${newTaskDue}T12:00:00Z`).toISOString() : undefined,
+    });
+    setNewTaskSaving(false);
+    if (result.error) {
+      setNewTaskError(result.error);
+      return;
+    }
+    setNewTaskOpen(false);
+    setNewTaskText("");
+    setNewTaskAssignee("");
+    setNewTaskDue("");
+    toast.push({ tone: "success", title: "Task created" });
+    load();
+  };
+
+  const openPush = async (item: ActionItemRow) => {
+    setPushItem(item);
+    setPushError(null);
+    setToolsLoading(true);
+    const result = await fetchIntegrations();
+    setToolsLoading(false);
+    if (!result.data) {
+      setTools([]);
+      setPushError(result.error ?? "We could not load your integrations.");
+      return;
+    }
+    setTools(
+      result.data.connections
+        .filter((connection) => connection.status === "connected")
+        .map((connection) => {
+          const spec = taskToolSpec(connection.integrationKey);
+          if (!spec) return null;
+          return {
+            key: connection.integrationKey,
+            name: spec.name,
+            target: taskToolTarget(spec, connection.config),
+            hasCredentials: connection.hasCredentials,
+          };
+        })
+        .filter((tool): tool is { key: string; name: string; target: string; hasCredentials: boolean } =>
+          tool !== null,
+        ),
+    );
+  };
+
+  const pushToTool = async (provider: string) => {
+    if (!pushItem) return;
+    setPushingTool(provider);
+    setPushError(null);
+    const result = await pushActionItem(pushItem.id, provider);
+    setPushingTool(null);
+    if (result.error || !result.data) {
+      setPushError(result.error ?? "The task could not be pushed.");
+      return;
+    }
+    const ref = result.data.ref;
+    setItems((current) =>
+      current.map((row) =>
+        row.id === pushItem.id
+          ? { ...row, pushedRefs: [...row.pushedRefs.filter((entry) => entry.provider !== provider), ref] }
+          : row,
+      ),
+    );
+    toast.push({ tone: "success", title: "Task pushed", description: ref.label });
+    setPushItem(null);
+  };
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -213,6 +338,9 @@ export default function TasksPage() {
         <div className="flex items-center gap-2">
           <Button variant="secondary" size="sm" onClick={exportCsv} disabled={filtered.length === 0}>
             Export CSV
+          </Button>
+          <Button size="sm" onClick={() => void openNewTask()}>
+            New task
           </Button>
         </div>
       </div>
@@ -402,6 +530,27 @@ export default function TasksPage() {
                               {item.meetingTitle}
                             </Link>
                           </p>
+                          {item.pushedRefs.length ? (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {item.pushedRefs.map((ref) =>
+                                ref.url ? (
+                                  <a
+                                    key={ref.provider}
+                                    href={ref.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="hover:opacity-80"
+                                  >
+                                    <Badge tone="accent">{ref.label}</Badge>
+                                  </a>
+                                ) : (
+                                  <Badge key={ref.provider} tone="accent">
+                                    {ref.label}
+                                  </Badge>
+                                ),
+                              )}
+                            </div>
+                          ) : null}
                         </div>
                         <div className="flex shrink-0 flex-col items-end gap-1">
                           <span className="text-xs text-text-muted">
@@ -420,6 +569,14 @@ export default function TasksPage() {
                         <Button
                           variant="ghost"
                           size="sm"
+                          onClick={() => void openPush(item)}
+                          title="Push this task to a project tool"
+                        >
+                          Push
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => setItemStatus(item, done ? "open" : "done")}
                         >
                           {done ? "Reopen" : "Done"}
@@ -433,6 +590,110 @@ export default function TasksPage() {
           </div>
         </>
       )}
+
+      <Dialog open={newTaskOpen} onClose={() => setNewTaskOpen(false)} title="New task">
+        <div className="grid gap-3">
+          <Field label="Meeting" htmlFor="new-task-meeting">
+            <Select
+              id="new-task-meeting"
+              value={newTaskMeeting}
+              onChange={(event) => setNewTaskMeeting(event.target.value)}
+            >
+              <option value="">Pick a meeting</option>
+              {meetings.map((meeting) => (
+                <option key={meeting.id} value={meeting.id}>
+                  {meeting.title}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Task" htmlFor="new-task-text">
+            <Input
+              id="new-task-text"
+              value={newTaskText}
+              maxLength={2000}
+              placeholder="What needs to be done?"
+              onChange={(event) => setNewTaskText(event.target.value)}
+            />
+          </Field>
+          <Field label="Owner" htmlFor="new-task-assignee" hint="Optional.">
+            <Input
+              id="new-task-assignee"
+              value={newTaskAssignee}
+              maxLength={120}
+              placeholder="Who is doing it?"
+              onChange={(event) => setNewTaskAssignee(event.target.value)}
+            />
+          </Field>
+          <Field label="Due date" htmlFor="new-task-due" hint="Optional.">
+            <Input
+              id="new-task-due"
+              type="date"
+              value={newTaskDue}
+              onChange={(event) => setNewTaskDue(event.target.value)}
+            />
+          </Field>
+          {newTaskError ? <p className="text-xs text-danger">{newTaskError}</p> : null}
+        </div>
+        <div className="mt-6 flex justify-end gap-2">
+          <Button variant="ghost" size="sm" onClick={() => setNewTaskOpen(false)}>
+            Cancel
+          </Button>
+          <Button size="sm" loading={newTaskSaving} onClick={() => void createTask()}>
+            Create task
+          </Button>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={pushItem !== null}
+        onClose={() => setPushItem(null)}
+        title="Push task to a project tool"
+        description={pushItem?.text}
+      >
+        {toolsLoading ? (
+          <div className="grid gap-2">
+            <Skeleton className="h-12" rounded="lg" />
+            <Skeleton className="h-12" rounded="lg" />
+          </div>
+        ) : tools.length === 0 ? (
+          <EmptyState
+            title="No project tools connected"
+            description="Connect Jira, Linear, Asana, ClickUp, Trello or monday.com on the Integrations page first."
+            action={
+              <Link href="/app/integrations">
+                <Button size="sm">Go to integrations</Button>
+              </Link>
+            }
+          />
+        ) : (
+          <div className="grid gap-2">
+            {tools.map((tool) => (
+              <div
+                key={tool.key}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-3"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-text">{tool.name}</p>
+                  <p className="text-xs text-text-muted">
+                    {tool.target}
+                    {tool.hasCredentials ? "" : " · no API token saved"}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  loading={pushingTool === tool.key}
+                  disabled={!tool.hasCredentials}
+                  onClick={() => void pushToTool(tool.key)}
+                >
+                  Push
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+        {pushError ? <p className="mt-3 text-xs text-danger">{pushError}</p> : null}
+      </Dialog>
     </div>
   );
 }
