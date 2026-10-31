@@ -33,7 +33,7 @@ const server = createServer(async (request, response) => {
 });
 
 server.listen(healthPort, () => {
-  console.info(`[worker] listening on :${healthPort}, queues: transcribe, summarize, embed, email`);
+  console.info(`[worker] listening on :${healthPort}, queues: transcribe, summarize, embed, email, calendar, bot`);
 });
 
 const shutdown = async (signal: string) => {

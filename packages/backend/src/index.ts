@@ -5,6 +5,8 @@ export * from "./export";
 export * from "./mailer";
 export * from "./storage";
 export * from "./video";
+export * from "./calendar";
+export * from "./calendarSync";
 export * from "./providers";
 export * from "./jobs";
 export * from "./queue";

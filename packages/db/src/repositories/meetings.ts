@@ -138,7 +138,7 @@ export async function getMeeting(ctx: TenantContext, id: string): Promise<Meetin
 
 export async function createMeeting(
   ctx: TenantContext,
-  input: { title: string; source: string; startedAt?: Date },
+  input: { title: string; source: string; startedAt?: Date; calendarEventId?: string | null; status?: string },
 ): Promise<MeetingListItem> {
   return withTenant(ctx, async (tx) => {
     const rows = await tx
@@ -148,8 +148,9 @@ export async function createMeeting(
         ownerId: ctx.userId,
         title: input.title.slice(0, 300),
         source: input.source as never,
-        status: "processing",
+        status: (input.status ?? "processing") as never,
         startedAt: input.startedAt ?? new Date(),
+        calendarEventId: input.calendarEventId ?? null,
       })
       .returning({ id: meetings.id });
     const created = await tx

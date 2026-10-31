@@ -3,8 +3,18 @@ import IORedis from "ioredis";
 import { redisUrl } from "./env";
 import { runJob, type JobPayload } from "./jobs";
 
-export const QUEUES = ["transcribe", "summarize", "embed", "email"] as const;
+export const QUEUES = ["transcribe", "summarize", "embed", "email", "calendar", "bot"] as const;
 export type QueueName = (typeof QUEUES)[number];
+
+/** The queue name and the job name are not always the same. */
+const JOB_NAMES: Record<QueueName, JobPayload["name"]> = {
+  transcribe: "transcribe",
+  summarize: "summarize",
+  embed: "embed",
+  email: "email",
+  calendar: "calendar-sync",
+  bot: "bot-join",
+};
 
 type DataFor<Q extends QueueName> = Q extends "transcribe"
   ? Extract<JobPayload, { name: "transcribe" }>["data"]
@@ -12,7 +22,11 @@ type DataFor<Q extends QueueName> = Q extends "transcribe"
     ? Extract<JobPayload, { name: "summarize" }>["data"]
     : Q extends "embed"
       ? Extract<JobPayload, { name: "embed" }>["data"]
-      : Extract<JobPayload, { name: "email" }>["data"];
+      : Q extends "calendar"
+        ? Extract<JobPayload, { name: "calendar-sync" }>["data"]
+        : Q extends "bot"
+          ? Extract<JobPayload, { name: "bot-join" }>["data"]
+          : Extract<JobPayload, { name: "email" }>["data"];
 
 let redis: IORedis | null = null;
 let queues: Map<QueueName, Queue> | null = null;
@@ -60,7 +74,7 @@ export async function enqueue<Q extends QueueName>(name: Q, data: DataFor<Q>): P
     if (process.env.NODE_ENV !== "test") {
       console.info(`[queue] REDIS_URL not set; running ${name} inline`);
     }
-    const payload = { name, data } as JobPayload;
+    const payload = { name: JOB_NAMES[name], data } as JobPayload;
     const run = async () => {
       const result = await runJob(payload);
       await chain(payload, result.orgId, result.meetingId);
@@ -101,7 +115,7 @@ export function startWorkers(options: { concurrency?: number } = {}): WorkerHand
       new Worker(
         name,
         async (job: Job) => {
-          const payload = { name: job.name === name ? name : name, data: job.data } as JobPayload;
+          const payload = { name: JOB_NAMES[name], data: job.data } as JobPayload;
           const result = await runJob(payload);
           await chain(payload, result.orgId, result.meetingId);
           return { ok: true };

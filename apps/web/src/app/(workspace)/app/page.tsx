@@ -84,7 +84,7 @@ export default async function HomePage() {
                       startsAt: event.startsAt,
                       endsAt: event.endsAt,
                       meetingUrl: event.meetingUrl,
-                      autoJoin: event.autoJoin,
+                      autoJoin: event.autoJoin ?? undefined,
                       botStatus: event.botStatus as never,
                     }}
                   />
