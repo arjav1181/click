@@ -1458,6 +1458,7 @@ export interface CalendarConnectionRow {
   accountEmail: string;
   status: "connected" | "expired" | "revoked" | "error";
   syncCursor: string | null;
+  autoJoin: boolean;
   createdAt: string;
 }
 
@@ -1477,6 +1478,88 @@ export async function connectCalendar(input: {
 
 export async function disconnectCalendar(id: string): Promise<ApiResult<{ ok: boolean }>> {
   return apiFetch<{ ok: boolean }>(`/api/v1/calendars/${id}`, { method: "DELETE" });
+}
+
+export async function updateCalendar(
+  id: string,
+  patch: { autoJoin?: boolean },
+): Promise<ApiResult<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>(`/api/v1/calendars/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function syncCalendar(id: string): Promise<ApiResult<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>(`/api/v1/calendars/${id}/sync`, { method: "POST" });
+}
+
+export interface CalendarProviderStatus {
+  provider: "google" | "microsoft";
+  configured: boolean;
+  connectUrl: string;
+}
+
+export async function fetchCalendarProviders(): Promise<
+  ApiResult<{ providers: CalendarProviderStatus[] }>
+> {
+  return apiFetch<{ providers: CalendarProviderStatus[] }>("/api/v1/calendars/providers");
+}
+
+export interface CalendarEventRow {
+  id: string;
+  title: string | null;
+  startsAt: string;
+  endsAt: string;
+  meetingUrl: string | null;
+  provider: string | null;
+  autoJoin: boolean | null;
+  botStatus: string;
+}
+
+export interface CalendarRuleRow {
+  id: string;
+  connectionId: string | null;
+  titlePattern: string | null;
+  hostPattern: string | null;
+  attendeeEmail: string | null;
+  autoJoin: boolean;
+  priority: number;
+  createdAt: string;
+}
+
+export async function fetchCalendarEvents(): Promise<
+  ApiResult<{ events: CalendarEventRow[]; rules: CalendarRuleRow[] }>
+> {
+  return apiFetch<{ events: CalendarEventRow[]; rules: CalendarRuleRow[] }>("/api/v1/calendar-events");
+}
+
+export async function setEventAutoJoin(
+  id: string,
+  autoJoin: boolean | null,
+): Promise<ApiResult<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>(`/api/v1/calendar-events/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ autoJoin }),
+  });
+}
+
+export async function createCalendarRule(input: {
+  connectionId?: string | null;
+  titlePattern?: string | null;
+  hostPattern?: string | null;
+  attendeeEmail?: string | null;
+  autoJoin: boolean;
+  priority?: number;
+}): Promise<ApiResult<{ id: string }>> {
+  return apiFetch<{ id: string }>("/api/v1/calendar-rules", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function deleteCalendarRule(id: string): Promise<ApiResult<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>(`/api/v1/calendar-rules/${id}`, { method: "DELETE" });
 }
 
 export interface ConsentPolicy {

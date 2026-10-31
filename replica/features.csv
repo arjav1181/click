@@ -25,16 +25,16 @@ Audit log CSV export,workspace,should,yes,yes,P1; S58 admin audit log exports th
 Workspace usage analytics dashboard,workspace,should,yes,yes,S57: /admin/analytics renders member count, ASR seconds, LLM tokens, cost estimate and budget cap from GET /api/v1/org/usage
 AI budget cap with alerts and hard stop,workspace,must,no,yes,P0; S56 admin AI policy sets the per-workspace monthly cap, shows spend against it, warns when it is hit and hard-stops AI work
 SMTP storage and SSO configuration UI,workspace,must,no,yes,S60: /admin/instance renders provider status (ASR, LLM, embeddings, SMTP) with test-connection buttons
-Google Calendar sync,calendar,must,yes,partial,S05: /settings/calendars lists, connects and disconnects calendar connections over GET/POST/DELETE /api/v1/calendars; real OAuth sync is still missing
-Microsoft Outlook calendar sync,calendar,should,yes,partial,S05: Microsoft provider supported in the same flow; real OAuth sync is still missing
-Auto-join rules per calendar or event,calendar,must,yes,no,P1
+Google Calendar sync,calendar,must,yes,yes,S05: Google OAuth (PKCE) over /api/v1/calendars/providers/[provider]/start + callback, token refresh, two-week event polling, encrypted refresh tokens and background sync via the calendar queue
+Microsoft Outlook calendar sync,calendar,should,yes,yes,S05: Microsoft Graph OAuth with the same PKCE flow, calendarView event polling and encrypted refresh tokens
+Auto-join rules per calendar or event,calendar,must,yes,yes,S05: calendar_rules table with title/host/attendee patterns, per-calendar default and per-event manual override over /api/v1/calendar-rules and /api/v1/calendar-events
 Upcoming meetings widget,calendar,must,yes,yes,S07: /app renders upcoming calendar events from the database with bot-join badges over calendarsRepo.listCalendarEvents
-Calendar event detail with past-meeting context,calendar,should,yes,no,P2
+Calendar event detail with past-meeting context,calendar,should,yes,partial,S05: event list with bot toggles; a full past-meeting context panel is still missing
 Bot joins Zoom meetings,bot,must,yes,no,P1
 Bot joins Microsoft Teams meetings,bot,should,yes,no,P4
 Bot joins Webex meetings where the API allows,bot,could,yes,no,P4
 Send bot to a meeting link on demand,bot,must,yes,yes,S62: /app/meetings/[id]/bot sends and cancels a bot over POST/DELETE /api/v1/meetings/[id]/bot
-Auto-join from calendar events,bot,must,yes,no,P1
+Auto-join from calendar events,bot,must,yes,yes,S05: sync evaluates the rules, creates a scheduled meeting plus a bot job and queues it on the bot queue; the bot service join is behind BOT_SERVICE_URL
 Bot display name and avatar configuration,bot,must,yes,no,P1
 Lobby and waiting-room handling with host admit,bot,should,yes,no,P1
 Consent notice posted in meeting chat,bot,must,yes,partial,S63: /bot/notice edits the message the bot posts over GET/PUT /api/v1/bot/notice; posting to the external chat not built
@@ -72,7 +72,7 @@ Raw and cleaned text stored per segment,transcription,should,yes,no,P1; Fireflie
 Word-level timestamps for playback,transcription,should,yes,no,P2; Otter
 Low-confidence transcript flagging,transcription,should,no,no,P3
 Speaker diarization (who spoke when),speakers,must,yes,partial,P1; provider speakers map to the speakers table, quality depends on the ASR provider
-Named speaker attribution from calendar attendees,speakers,must,yes,no,P1
+Named speaker attribution from calendar attendees,speakers,must,yes,partial,S05: attendees are stored on the calendar event and kept with the bot job; mapping them onto transcript speakers is not done yet
 Me versus Them fallback labels,speakers,must,yes,partial,P1; speakers.isMe and speakerIsMe in the API, fallback naming not finished
 Rename speakers,speakers,must,yes,yes,S48: PATCH /api/v1/speakers/[id] renames a speaker across all transcripts
 Merge duplicate speakers,speakers,must,yes,yes,S48: POST /api/v1/speakers/merge reassigns segments and marks the source as merged

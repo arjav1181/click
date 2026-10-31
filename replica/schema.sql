@@ -169,6 +169,7 @@ create table calendar_connections (
   sync_cursor       text,
   status            text not null default 'connected'
                     check (status in ('connected','expired','revoked','error')),
+  auto_join         boolean not null default true,
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now(),
   unique (user_id, provider, account_email)
@@ -188,7 +189,7 @@ create table calendar_events (
   attendees       jsonb not null default '[]',
   meeting_url     text,
   provider        text,
-  auto_join       boolean not null default true,
+  auto_join       boolean,
   bot_status      text not null default 'none'
                   check (bot_status in ('none','scheduled','joining','joined','declined','failed')),
   created_at      timestamptz not null default now(),
@@ -198,6 +199,21 @@ create table calendar_events (
 );
 create index on calendar_events (org_id, starts_at);
 create index on calendar_events (org_id, auto_join, starts_at);
+
+-- Auto-join rules are evaluated per synced event. A rule with no connection
+-- applies to every calendar in the workspace; a null pattern matches anything.
+create table calendar_rules (
+  id             uuid primary key default gen_random_uuid(),
+  org_id         uuid not null references organizations(id) on delete cascade,
+  connection_id  uuid references calendar_connections(id) on delete cascade,
+  title_pattern  text,
+  host_pattern   text,
+  attendee_email citext,
+  auto_join      boolean not null default true,
+  priority       integer not null default 100,
+  created_at     timestamptz not null default now()
+);
+create index on calendar_rules (org_id, priority);
 
 create table meetings (
   id                uuid primary key default gen_random_uuid(),
@@ -254,6 +270,10 @@ create table bot_jobs (
   attempts        integer not null default 0,
   lobby_reason    text,
   error_code      text,
+  calendar_event_id uuid references calendar_events(id) on delete set null,
+  provider_config jsonb not null default '{}',
+  consent_notice_sent_at timestamptz,
+  no_show_notified_at timestamptz,
   idempotency_key text not null unique,
   scheduled_at    timestamptz not null default now(),
   started_at      timestamptz,
@@ -759,6 +779,7 @@ create table webhook_endpoints (
   org_id      uuid not null references organizations(id) on delete cascade,
   url         text not null,
   secret_hash text not null,
+  secret_enc  text,
   events      text[] not null default '{}',
   active      boolean not null default true,
   created_at  timestamptz not null default now()

@@ -158,6 +158,20 @@ traces or internal messages. Mutating routes check the `Origin` header against
 | POST | `/api/v1/uploads` | member |
 | GET | `/api/v1/uploads/[...key]` | member (signed download) |
 
+### Calendar
+| method | path | role |
+| --- | --- | --- |
+| GET, POST | `/api/v1/calendars` | member |
+| PATCH, DELETE | `/api/v1/calendars/[id]` | member |
+| POST | `/api/v1/calendars/[id]/sync` | member |
+| GET | `/api/v1/calendars/providers` | member |
+| GET | `/api/v1/calendars/providers/[provider]/start` | member (OAuth redirect) |
+| GET | `/api/v1/calendars/providers/[provider]/callback` | member (OAuth redirect) |
+| GET, POST | `/api/v1/calendar-rules` | member |
+| DELETE | `/api/v1/calendar-rules/[id]` | member |
+| GET | `/api/v1/calendar-events` | member |
+| PATCH | `/api/v1/calendar-events/[id]` | member |
+
 ### Administration
 | method | path | role |
 | --- | --- | --- |
@@ -173,7 +187,7 @@ replay.
 
 ## 5. Jobs
 
-Four queues: `transcribe`, `summarize`, `embed`, `email`.
+Six queues: `transcribe`, `summarize`, `embed`, `email`, `calendar`, `bot`.
 
 With `REDIS_URL` set, jobs go through BullMQ (3 attempts, exponential backoff)
 and `apps/worker` runs the workers. Without Redis, the web process runs the
@@ -309,9 +323,12 @@ index skipped — the schema itself is unchanged):
    embeddings table needs pgvector, which is not available in every local
    environment. `EMBEDDINGS_ENABLED=false` by default.
 6. **Rate limiting is per process** — move to Redis before running more than
-   one web node.
-7. **Calendar sync** — the `calendar_connections` table and encrypted-token
-   helpers exist; Google/Microsoft OAuth and event polling do not.
+   one web node. The limiter already uses Redis when `REDIS_URL` is set.
+7. **Calendar sync** — done. Google and Microsoft OAuth with PKCE, encrypted
+   refresh tokens, two-week event polling, auto-join rules and bot jobs are
+   implemented (`packages/backend/src/calendar.ts`, `calendarSync.ts`). The
+   polling loop itself still has to be triggered by a scheduler: the queue
+   job exists but nothing calls it on a timer yet.
 8. **Webhooks** — the tables exist and audit events are written, but outgoing
    webhook delivery is not implemented.
 9. **No automated browser tests yet** — the API is exercised by the smoke test

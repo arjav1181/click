@@ -53,11 +53,23 @@ export interface EmailJobData {
   html: string;
 }
 
+export interface CalendarSyncJobData {
+  orgId: string;
+  connectionId: string;
+}
+
+export interface BotJoinJobData {
+  orgId: string;
+  botJobId: string;
+}
+
 export type JobPayload =
   | { name: "transcribe"; data: TranscribeJobData }
   | { name: "summarize"; data: SummarizeJobData }
   | { name: "embed"; data: EmbedJobData }
-  | { name: "email"; data: EmailJobData };
+  | { name: "email"; data: EmailJobData }
+  | { name: "calendar-sync"; data: CalendarSyncJobData }
+  | { name: "bot-join"; data: BotJoinJobData };
 
 export interface JobOutcome {
   orgId: string;
@@ -447,6 +459,52 @@ export async function emailJob(data: EmailJobData): Promise<JobOutcome> {
   return { orgId: "system" };
 }
 
+/** Pulls the next two weeks of events and queues bots for the meetings that need one. */
+export async function calendarSyncJob(data: CalendarSyncJobData): Promise<JobOutcome> {
+  const { syncCalendarConnection } = await import("./calendarSync");
+  const { enqueue } = await import("./queue");
+  const result = await syncCalendarConnection(data.orgId, data.connectionId, {
+    queueBot: async ({ orgId, botJobId }) => {
+      await enqueue("bot", { orgId, botJobId });
+    },
+  });
+  if (result.error) throw new Error(result.error);
+  return { orgId: data.orgId };
+}
+
+/** Asks the bot service to join a meeting. */
+export async function botJoinJob(data: BotJoinJobData): Promise<JobOutcome> {
+  const { botsRepo, workspaceRepo } = await import("@click/db");
+  const { requestBotJoin, callbackBaseUrl } = await import("./botService");
+  const ctx = { orgId: data.orgId, userId: "00000000-0000-0000-0000-000000000000" };
+  const job = await botsRepo.getBotJob(ctx, data.botJobId);
+  if (!job) throw new Error("Bot job not found.");
+  if (job.state === "active" || job.state === "completed" || job.state === "cancelled") {
+    return { orgId: data.orgId, meetingId: job.meetingId };
+  }
+
+  await botsRepo.updateBotJobState(
+    { id: job.id, orgId: data.orgId, meetingId: job.meetingId },
+    { state: "joining" },
+  );
+
+  const notice = await workspaceRepo.getBotNotice(ctx);
+  const result = await requestBotJoin({
+    botJobId: job.id,
+    meetingId: job.meetingId,
+    provider: job.provider,
+    meetingUrl: job.meetingUrl,
+    botName: job.botName,
+    consentNotice: notice,
+    callbackBaseUrl: callbackBaseUrl(),
+  });
+  if (!result.ok) {
+    await botsRepo.failBotJob(ctx, job.id, result.error ?? "bot_join_failed");
+    throw new Error(result.error ?? "The bot could not join the meeting.");
+  }
+  return { orgId: data.orgId, meetingId: job.meetingId };
+}
+
 export async function runJob(payload: JobPayload): Promise<JobOutcome> {
   switch (payload.name) {
     case "transcribe":
@@ -457,6 +515,10 @@ export async function runJob(payload: JobPayload): Promise<JobOutcome> {
       return embedJob(payload.data);
     case "email":
       return emailJob(payload.data);
+    case "calendar-sync":
+      return calendarSyncJob(payload.data);
+    case "bot-join":
+      return botJoinJob(payload.data);
   }
 }
 

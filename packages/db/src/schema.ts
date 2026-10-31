@@ -137,6 +137,7 @@ export const calendarConnections = pgTable("calendar_connections", {
   refreshTokenEnc: text("refresh_token_enc").notNull(),
   syncCursor: text("sync_cursor"),
   status: text("status").notNull().default("connected"),
+  autoJoin: boolean("auto_join").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
 });
@@ -154,10 +155,22 @@ export const calendarEvents = pgTable("calendar_events", {
   attendees: jsonb("attendees").notNull().default("[]"),
   meetingUrl: text("meeting_url"),
   provider: text("provider"),
-  autoJoin: boolean("auto_join").notNull().default(true),
+  autoJoin: boolean("auto_join"),
   botStatus: text("bot_status").notNull().default("none"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+});
+
+export const calendarRules = pgTable("calendar_rules", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull(),
+  connectionId: uuid("connection_id"),
+  titlePattern: text("title_pattern"),
+  hostPattern: text("host_pattern"),
+  attendeeEmail: text("attendee_email"),
+  autoJoin: boolean("auto_join").notNull().default(true),
+  priority: integer("priority").notNull().default(100),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
 });
 
 export const meetings = pgTable("meetings", {
@@ -206,6 +219,10 @@ export const botJobs = pgTable("bot_jobs", {
   attempts: integer("attempts").notNull().default(0),
   lobbyReason: text("lobby_reason"),
   errorCode: text("error_code"),
+  calendarEventId: uuid("calendar_event_id"),
+  providerConfig: jsonb("provider_config").notNull().default("{}"),
+  consentNoticeSentAt: timestamp("consent_notice_sent_at", { withTimezone: true }),
+  noShowNotifiedAt: timestamp("no_show_notified_at", { withTimezone: true }),
   idempotencyKey: text("idempotency_key").notNull(),
   scheduledAt: timestamp("scheduled_at", { withTimezone: true }).notNull().defaultNow(),
   startedAt: timestamp("started_at", { withTimezone: true }),
@@ -621,6 +638,7 @@ export const webhookEndpoints = pgTable("webhook_endpoints", {
   orgId: uuid("org_id").notNull(),
   url: text("url").notNull(),
   secretHash: text("secret_hash").notNull(),
+  secretEnc: text("secret_enc"),
   events: text("events").array().notNull().default([]),
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()

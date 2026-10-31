@@ -39,6 +39,15 @@ Repo layout: pnpm workspace + Turborepo — apps/web, apps/worker, apps/asr; pac
 - Fixes made this phase: `transcript_status` enum needed a 'processing' value (added to `replica/schema.sql` and `0000_init.sql`); removed pointless DELETE on `/api/v1/auth/session`; session guard added to `(workspace)/layout.tsx` (redirect to `/login?next=/app`); shell header now shows user/org and signs out; `.gitignore` `uploads/` rule was hiding `apps/web/src/app/api/v1/uploads/` — now anchored to the repo root.
 - Local sandbox gotcha: an ambient `DATABASE_URL` in the environment overrides `.env.local` in Next — export DATABASE_URL explicitly when running the dev server here.
 
+## Calendar + auto-join (S05) — DONE
+- `packages/backend/src/calendar.ts`: Google Calendar + Microsoft Graph OAuth (PKCE, refresh tokens, two-week event polling, account email lookup).
+- `packages/backend/src/calendarSync.ts`: `syncCalendarConnection` (upsert events → evaluate rules → create scheduled meeting + bot job → enqueue bot), `resolveAutoJoin` (per-event override > first matching rule > per-calendar default), `providerForUrl` (zoom/teams/meet/webex).
+- `packages/backend/src/botService.ts`: HMAC-signed `POST {BOT_SERVICE_URL}/v1/join` client for the `apps/bot` service.
+- New queues `calendar` + `bot` in `packages/backend/src/queue.ts` (queue name → job name mapping lives in `JOB_NAMES`); `apps/worker` starts workers for all six queues.
+- Routes: `GET/POST /api/v1/calendars`, `PATCH/DELETE /api/v1/calendars/[id]`, `POST /api/v1/calendars/[id]/sync`, `GET /api/v1/calendars/providers`, `GET /api/v1/calendars/providers/[provider]/start|callback`, `GET/POST /api/v1/calendar-rules`, `DELETE /api/v1/calendar-rules/[id]`, `GET /api/v1/calendar-events`, `PATCH /api/v1/calendar-events/[id]`.
+- New migration `packages/db/migrations/0002_calendar_bot_live.sql` (0000 stays frozen — checksums are locked): `calendar_connections.auto_join`, nullable `calendar_events.auto_join`, new `calendar_rules` table, `bot_jobs.calendar_event_id/provider_config/consent_notice_sent_at/no_show_notified_at`, `webhook_endpoints.secret_enc`.
+- OAuth is not configured in this sandbox: the UI shows a banner and the endpoints return `503 calendar_not_configured` / `409 calendar_not_connected` instead of a 500.
+
 ## Schema (replica/schema.sql)
 - 64 tables, RLS enabled on every tenant table, policies in `replica/schema.sql` and `packages/db/migrations/0000_init.sql`.
 - DDL executed on PostgreSQL 17 locally; pgvector unavailable in the sandbox, so a patched copy (`vector(1536)`→`jsonb`, HNSW index skipped) was applied via `MIGRATIONS_DIR`. Production/CI use `pgvector/pgvector:pg17`.
@@ -93,7 +102,7 @@ M0 foundation → M1 vertical slice (upload/transcribe/summary/search) → M2 bo
 
 ## Next steps
 - /replica-build M0/M1 done. /replica-backend done (see Backend phase above). Next: /replica-build M2 — bot capture (Zoom RTMS, Google Meet Media API with browser-bot fallback, live segment streaming, consent notice), then M3 workspace screens.
-- Known gaps to close later: SAML SSO, calendar OAuth sync, multi-workspace switching, outgoing webhooks, Playwright suite, response security headers, Redis-backed rate limiting.
+- Known gaps to close later: SAML SSO, multi-workspace switching, outgoing webhooks, the `apps/bot` provider clients (Zoom/Meet/Teams), live segment streaming, Playwright suite, response security headers.
 - Record in MEMORY.md after each phase.
 
 ## Notes
