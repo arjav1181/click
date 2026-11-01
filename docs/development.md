@@ -24,17 +24,17 @@ browser ──▶ apps/web ──▶ packages/db ──▶ Postgres
 
 ### 1. The canonical SQL is the source of truth
 
-`replica/schema.sql` defines every table, index, trigger and RLS policy.
-`packages/db/src/schema.ts` is generated from it:
+`packages/db/ddl/schema.sql` defines every table, index, trigger and RLS
+policy. `packages/db/src/schema.ts` is generated from it:
 
 ```bash
 pnpm --filter @click/db schema
 ```
 
-Never hand-edit `schema.ts`. To change the schema, edit `replica/schema.sql`,
-copy the change into a new migration in `packages/db/migrations/`, and
-regenerate. Migrations are append-only — the migrator refuses to run if an
-already-applied file's checksum changed.
+Never hand-edit `schema.ts`. To change the schema, edit
+`packages/db/ddl/schema.sql`, copy the change into a new migration in
+`packages/db/migrations/`, and regenerate. Migrations are append-only — the
+migrator refuses to run if an already-applied file's checksum changed.
 
 ### 2. Tenant queries go through `withTenant()`
 
@@ -138,8 +138,8 @@ break.
 ## Things that are easy to get wrong
 
 - **The schema is not a view.** `packages/db/src/schema.ts` mirrors
-  `replica/schema.sql`. If you change one without the other, TypeScript will
-  happily compile queries against columns that do not exist.
+  `packages/db/ddl/schema.sql`. If you change one without the other,
+  TypeScript will happily compile queries against columns that do not exist.
 - **`citext` is `text` in the Drizzle schema.** Emails are case-insensitive in
   the database, so always lowercase before comparing or inserting.
 - **Enum columns are typed as `text` in Drizzle.** Postgres still enforces the

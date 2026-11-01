@@ -1,4 +1,4 @@
-// Generated from replica/schema.sql by packages/db/scripts/generate-schema.mjs.
+// Generated from packages/db/ddl/schema.sql by packages/db/scripts/generate-schema.mjs.
 // Do not hand-edit table shapes: change the SQL, then regenerate.
 import {
   pgTable,

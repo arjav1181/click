@@ -1,12 +1,13 @@
 #!/usr/bin/env node
-// Generates a Drizzle table map from the canonical SQL in replica/schema.sql.
-// The SQL remains the source of truth (and the migration); this file exists so
-// query code is typed. Regenerate with `pnpm --filter @click/db schema`.
+// Generates a Drizzle table map from the canonical SQL in
+// packages/db/ddl/schema.sql. The SQL remains the source of truth (and the
+// migration); this file exists so query code is typed. Regenerate with
+// `pnpm --filter @click/db schema`.
 import fs from "node:fs";
 import path from "node:path";
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
-const sql = fs.readFileSync(path.join(root, "../../replica/schema.sql"), "utf8");
+const sql = fs.readFileSync(path.join(root, "ddl/schema.sql"), "utf8");
 
 const blocks = [...sql.matchAll(/create table (\w+) \(([\s\S]*?)\n\);/g)];
 
@@ -62,7 +63,7 @@ const defaults = (raw, type) => {
   return null;
 };
 
-let out = `// Generated from replica/schema.sql by packages/db/scripts/generate-schema.mjs.
+let out = `// Generated from packages/db/ddl/schema.sql by packages/db/scripts/generate-schema.mjs.
 // Do not hand-edit table shapes: change the SQL, then regenerate.
 import {
   pgTable,

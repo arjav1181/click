@@ -5,10 +5,9 @@
 > lets you ask questions across every meeting you have ever had.
 
 Status: **backend landed** — app shell + vertical slice (M0/M1) plus real auth,
-Postgres + RLS, storage, providers, jobs and email (`/replica-backend`). See
-[`replica/build-log.md`](replica/build-log.md) and
-[`replica/backend.md`](replica/backend.md). Architecture:
-[`replica/architecture.md`](replica/architecture.md).
+Postgres + RLS, storage, providers, jobs and email. Architecture and operations
+notes live in [`docs/development.md`](docs/development.md) and
+[`docs/self-hosting.md`](docs/self-hosting.md).
 
 Click is a clean-room rebuild of the *functionality and UX patterns* of three
 public products (Fireflies.ai, Granola, Otter.ai) — the union of their features,
@@ -18,7 +17,7 @@ documentation and from scratch.
 
 > **Name note.** "Click" is a crowded software mark (ClickUp, ClickHouse, Click
 > payment). It is a working name; a trademark, domain and handle sweep is a
-> launch gate. See `replica/architecture.md`.
+> launch gate.
 
 ## Why
 
@@ -51,18 +50,17 @@ retention and audit controls.
 | Browser extension (tab audio) | P4 |
 | Mobile app | P4 |
 
-Scope, screens (S01–S74), flows (F01–F17) and the 216-row feature matrix live in
-[`replica/recon.md`](replica/recon.md) and
-[`replica/features.csv`](replica/features.csv).
+Scope covers 74 screens and the feature union of all three products. The
+detailed scope map and parity scoreboard are kept as local working notes and
+are not published in this repository.
 
 ## Stack
 
 Next.js 16 + TypeScript · PostgreSQL 16 + pgvector · Drizzle ORM · custom
 session auth (scrypt passwords, hashed session tokens, httpOnly cookie) · OIDC
 via `jose` · BullMQ on Redis · S3/MinIO · Nodemailer/SMTP · Docker Compose.
-Detailed rationale and the 64-table schema are in
-[`replica/architecture.md`](replica/architecture.md) and
-[`replica/schema.sql`](replica/schema.sql).
+The canonical 64-table schema is
+[`packages/db/ddl/schema.sql`](packages/db/ddl/schema.sql).
 
 ## Running it
 
@@ -90,17 +88,13 @@ account. Full deployment guide: [`docs/self-hosting.md`](docs/self-hosting.md).
 
 | path | what it is |
 | --- | --- |
-| `replica/recon.md` | recon map: sources, screens, flows, components, data model, scope |
-| `replica/features.csv` | feature matrix (the parity scoreboard) |
-| `replica/screens/` | reference screenshots of the originals (never shipped) |
-| `replica/architecture.md` | stack, schema, API and build order |
-| `replica/schema.sql` | canonical PostgreSQL DDL used by the first migration |
-| `replica/backend.md` | backend reference: data model, routes, jobs, providers, security, gaps |
 | `apps/web` | Next.js app: UI, `/api/v1` routes, bot callbacks |
 | `apps/worker` | BullMQ worker (transcribe, summarize, embed, email) |
 | `apps/asr` | local faster-whisper ASR service |
 | `packages/db` | Drizzle schema, migrations, RLS-aware client, repositories |
+| `packages/db/ddl/schema.sql` | canonical PostgreSQL DDL (source of the migrations and the generated schema) |
 | `packages/backend` | shared server code: env, crypto, mail, storage, providers, jobs |
+| `packages/ui` | shared UI components and the design tokens in `packages/ui/design` |
 | `infra/compose` | Docker Compose stack |
 | `docs/self-hosting.md` | deployment guide: Compose, manual install, configuration, backups |
 | `docs/development.md` | code layout and the rules that keep it consistent |
@@ -109,14 +103,12 @@ account. Full deployment guide: [`docs/self-hosting.md`](docs/self-hosting.md).
 
 | phase | state |
 | --- | --- |
-| Recon | done |
 | Architecture | done |
-| Design system | done (`/replica-design`) |
-| Build | app shell + API-backed core flow done (`/replica-build` M0/M1) |
-| Backend & auth | done (`/replica-backend`) — auth, DB + RLS, storage, providers, jobs, email |
-| Bot capture (M2) | next — Zoom RTMS / Google Meet clients |
-| QA | pending `/replica-test` |
-| Diff | pending `/replica-diff` |
+| Design system | done (`packages/ui/design`) |
+| Build | app shell + API-backed core flow done |
+| Backend & auth | done — auth, DB + RLS, storage, providers, jobs, email |
+| Bot capture | next — Zoom RTMS / Google Meet clients |
+| QA | pending |
 
 ## Contributing
 

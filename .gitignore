@@ -31,7 +31,10 @@ next-env.d.ts
 coverage/
 playwright-report/
 test-results/
-/replica/screens/*.png.tmp
+
+# Clone working notes: recon, parity scoreboard, build log, reference and
+# clone screenshots. Kept on the machine, never committed.
+/replica/
 
 # Editors & OS
 .DS_Store

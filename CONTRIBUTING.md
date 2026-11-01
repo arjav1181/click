@@ -6,7 +6,7 @@ Thanks for helping build an open, self-hostable AI meeting assistant.
 
 1. **Clean room.** Do not copy code, assets, copy text, logos, or design files
    from Fireflies.ai, Granola, Otter.ai or any other product. Build from the
-   written contracts in `replica/` and from first principles.
+   written contracts in `docs/` and from first principles.
 2. **Public sources only.** No reverse engineering, no inspecting private APIs,
    no copying bundled JavaScript, no unlicensed assets.
 3. **Own your dependencies.** Any dependency must be OSS-compatible with the
@@ -51,8 +51,8 @@ docker compose -f infra/compose/docker-compose.yml up -d db redis minio minio-in
 ```
 
 Without Docker, any Postgres 16+ works — the schema is in
-[`replica/schema.sql`](replica/schema.sql) and the migrations in
-`packages/db/migrations/`. If `pgvector` is unavailable, apply a copy with
+[`packages/db/ddl/schema.sql`](packages/db/ddl/schema.sql) and the migrations
+in `packages/db/migrations/`. If `pgvector` is unavailable, apply a copy with
 `vector(1536)` mapped to `jsonb` and the HNSW index skipped by pointing
 `MIGRATIONS_DIR` at that directory.
 
@@ -80,13 +80,12 @@ and the rules that keep it consistent.
 | `packages/db` | Drizzle schema, migrations, RLS-aware client, repositories |
 | `packages/backend` | shared server code: env, crypto, mail, storage, providers, jobs |
 | `packages/core` | shared types and demo data |
-| `packages/ui` | design-system components |
-| `replica/` | recon, architecture, schema, design tokens, backend reference |
+| `packages/ui` | design-system components and the design tokens in `packages/ui/design` |
 
 ### Rules that matter
 
-- The canonical DDL is `replica/schema.sql`. `packages/db/src/schema.ts` is
-  generated from it (`pnpm --filter @click/db schema`); never hand-edit it.
+- The canonical DDL is `packages/db/ddl/schema.sql`. `packages/db/src/schema.ts`
+  is generated from it (`pnpm --filter @click/db schema`); never hand-edit it.
 - Every tenant query goes through `withTenant()` in `packages/db/src/client.ts`.
   It sets the RLS context. Do not use the raw `db` export in request handlers.
 - Every API route is wrapped in `handler()` from `apps/web/src/server/http.ts`

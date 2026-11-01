@@ -269,7 +269,7 @@ recordings manually or set audio retention to zero.
 
 ## Known gaps
 
-See [`replica/backend.md`](../replica/backend.md) for the full list. The ones
-that matter most for a self-hoster: SAML SSO, calendar sync, multi-workspace
-switching, outgoing webhooks, an automatic retention purge, and Redis-backed
-rate limiting (the current limiter is per process).
+SAML SSO, calendar sync, multi-workspace switching, outgoing webhooks, an
+automatic retention purge, and Redis-backed rate limiting (the current limiter
+is per process) are not finished yet. See the issue tracker for the current
+state of each.
