@@ -1,5 +1,11 @@
 # Click
 
+[![CI](https://github.com/arjav1181/click/actions/workflows/ci.yml/badge.svg)](https://github.com/arjav1181/click/actions/workflows/ci.yml)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
+[![Next.js](https://img.shields.io/badge/Next.js-16-000?logo=next.js&logoColor=white)](apps/web)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](apps/web)
+[![Postgres](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)](packages/db)
+
 > An open-source, self-hostable AI meeting assistant: a bot joins your calls,
 > transcribes with speaker labels, writes structured notes and summaries, and
 > lets you ask questions across every meeting you have ever had.
@@ -19,6 +25,34 @@ documentation and from scratch.
 > **Name note.** "Click" is a crowded software mark (ClickUp, ClickHouse, Click
 > payment). It is a working name; a trademark, domain and handle sweep is a
 > launch gate. See `replica/architecture.md`.
+
+## Contents
+
+- [Screens](#screens)
+- [Why](#why)
+- [What is in scope](#what-is-in-scope)
+- [Stack](#stack)
+- [Running it](#running-it)
+- [Layout](#layout)
+- [Status](#status)
+- [Contributing](#contributing)
+- [Licence](#licence)
+
+## Screens
+
+The real app, running on the demo seed.
+
+**Home** — today's meetings, quick capture, and the budget meter.
+
+![Click home](replica/clone-screens/S07.png)
+
+**A meeting, with its AI notes and action items.**
+
+![Click meeting workspace](replica/clone-screens/S10.png)
+
+**Live capture** — speaker-attributed transcript as it happens.
+
+![Click live meeting](replica/clone-screens/S09.png)
 
 ## Why
 
