@@ -32,8 +32,14 @@ export async function buildBrief(ctx: TenantContext, eventId: string): Promise<B
       .orderBy(desc(meetings.startedAt))
       .limit(5);
 
+    const when = new Intl.DateTimeFormat("en-US", {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: "UTC",
+      timeZoneName: "short",
+    }).format(event.startsAt);
     const bullets: BriefBullet[] = [
-      { text: `Upcoming: ${event.title ?? "Meeting"} at ${event.startsAt.toISOString()}.` },
+      { text: `Upcoming: ${event.title ?? "Meeting"} at ${when}.` },
       ...recent.map((m) => ({ text: `Related past meeting: ${m.title}.`, sourceMeetingId: m.id, sourceTitle: m.title })),
     ];
     return {
