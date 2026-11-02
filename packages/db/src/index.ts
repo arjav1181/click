@@ -20,6 +20,7 @@ export * as notesRepo from "./repositories/notes";
 export * as searchRepo from "./repositories/search";
 export * as workspaceRepo from "./repositories/workspace";
 export * as botsRepo from "./repositories/bots";
+export * as uploadsRepo from "./repositories/uploads";
 export {
   hashPassword,
   verifyPassword,

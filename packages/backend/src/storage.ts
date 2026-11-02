@@ -1,12 +1,16 @@
 import { createReadStream } from "node:fs";
-import { mkdir, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, open, readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import {
+  AbortMultipartUploadCommand,
+  CompleteMultipartUploadCommand,
+  CreateMultipartUploadCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   PutObjectCommand,
   S3Client,
+  UploadPartCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { storageConfig } from "./env";
@@ -156,6 +160,113 @@ export async function presignDownload(key: string, expiresIn = 900): Promise<str
     });
   }
   return `/api/v1/uploads/${encodeURIComponent(key)}?expires=${expiresIn}`;
+}
+
+export interface MultipartPart {
+  partNumber: number;
+  etag?: string;
+}
+
+/**
+ * Starts a multipart upload. S3 gets a real multipart upload; the local driver
+ * writes each part as its own file next to the target and joins them on
+ * complete, so both drivers support the same chunked client protocol.
+ */
+export async function createMultipartUpload(
+  key: string,
+  contentType: string,
+): Promise<{ uploadId: string }> {
+  const config = storageConfig();
+  if (config.driver === "s3") {
+    const result = await client().send(
+      new CreateMultipartUploadCommand({
+        Bucket: config.bucket,
+        Key: key,
+        ContentType: contentType,
+        ServerSideEncryption: "AES256",
+      }),
+    );
+    return { uploadId: result.UploadId ?? "" };
+  }
+  await mkdir(path.dirname(localPath(`${key}.parts`)), { recursive: true });
+  return { uploadId: "local" };
+}
+
+export async function uploadPart(
+  key: string,
+  uploadId: string,
+  partNumber: number,
+  body: Buffer,
+): Promise<{ etag?: string }> {
+  const config = storageConfig();
+  if (config.driver === "s3") {
+    const result = await client().send(
+      new UploadPartCommand({
+        Bucket: config.bucket,
+        Key: key,
+        UploadId: uploadId,
+        PartNumber: partNumber,
+        Body: body,
+      }),
+    );
+    return { etag: result.ETag };
+  }
+  const target = localPath(`${key}.parts/${String(partNumber).padStart(6, "0")}`);
+  await mkdir(path.dirname(target), { recursive: true });
+  await writeFile(target, body);
+  return {};
+}
+
+export async function completeMultipartUpload(
+  key: string,
+  uploadId: string,
+  parts: MultipartPart[],
+): Promise<void> {
+  const config = storageConfig();
+  if (config.driver === "s3") {
+    await client().send(
+      new CompleteMultipartUploadCommand({
+        Bucket: config.bucket,
+        Key: key,
+        UploadId: uploadId,
+        MultipartUpload: {
+          Parts: parts.map((part) => ({
+            PartNumber: part.partNumber,
+            ETag: part.etag,
+          })),
+        },
+      }),
+    );
+    return;
+  }
+  const target = localPath(key);
+  await mkdir(path.dirname(target), { recursive: true });
+  const handle = await open(target, "w");
+  try {
+    for (const part of [...parts].sort((a, b) => a.partNumber - b.partNumber)) {
+      const source = localPath(`${key}.parts/${String(part.partNumber).padStart(6, "0")}`);
+      const bytes = await readFile(source);
+      await handle.write(bytes);
+    }
+  } finally {
+    await handle.close();
+  }
+  await rm(localPath(`${key}.parts`), { recursive: true, force: true });
+}
+
+export async function abortMultipartUpload(key: string, uploadId: string): Promise<void> {
+  const config = storageConfig();
+  if (config.driver === "s3") {
+    await client().send(
+      new AbortMultipartUploadCommand({
+        Bucket: config.bucket,
+        Key: key,
+        UploadId: uploadId,
+      }),
+    );
+    return;
+  }
+  await rm(localPath(`${key}.parts`), { recursive: true, force: true });
 }
 
 export async function readObjectText(key: string, maxBytes = 1_000_000): Promise<string | null> {

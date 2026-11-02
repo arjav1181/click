@@ -309,6 +309,44 @@ create index on recordings (meeting_id);
 create index on recordings (org_id, deleted_at);
 
 -- ---------------------------------------------------------------------------
+-- client uploads
+-- The desktop, extension and mobile clients stream a recording in chunks, so a
+-- long capture survives a dropped connection and a retry does not resend the
+-- whole file. The session row tracks the upload, the chunk rows make a
+-- re-sent chunk idempotent and let a client resume where it stopped.
+-- ---------------------------------------------------------------------------
+create table upload_sessions (
+  id                uuid primary key default gen_random_uuid(),
+  org_id            uuid not null references organizations(id) on delete cascade,
+  user_id           uuid not null references users(id) on delete cascade,
+  meeting_id        uuid references meetings(id) on delete set null,
+  title             text not null,
+  mime              text not null,
+  codec             text not null,
+  storage_key       text not null,
+  storage_upload_id text,
+  chunk_size        integer not null,
+  total_bytes       bigint,
+  received_bytes    bigint not null default 0,
+  state             text not null default 'open'
+                      check (state in ('open','completed','aborted')),
+  created_at        timestamptz not null default now(),
+  updated_at        timestamptz not null default now()
+);
+create index on upload_sessions (org_id, created_at desc);
+
+create table upload_chunks (
+  id          uuid primary key default gen_random_uuid(),
+  org_id      uuid not null references organizations(id) on delete cascade,
+  upload_id   uuid not null references upload_sessions(id) on delete cascade,
+  chunk_index integer not null,
+  size_bytes  integer not null,
+  etag        text,
+  created_at  timestamptz not null default now()
+);
+create unique index on upload_chunks (upload_id, chunk_index);
+
+-- ---------------------------------------------------------------------------
 -- transcription
 -- ---------------------------------------------------------------------------
 create table transcripts (

@@ -246,6 +246,34 @@ export const recordings = pgTable("recordings", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
 });
 
+export const uploadSessions = pgTable("upload_sessions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull(),
+  userId: uuid("user_id").notNull(),
+  meetingId: uuid("meeting_id"),
+  title: text("title").notNull(),
+  mime: text("mime").notNull(),
+  codec: text("codec").notNull(),
+  storageKey: text("storage_key").notNull(),
+  storageUploadId: text("storage_upload_id"),
+  chunkSize: integer("chunk_size").notNull(),
+  totalBytes: bigint("total_bytes", { mode: 'number' }),
+  receivedBytes: bigint("received_bytes", { mode: 'number' }).notNull().default(0),
+  state: text("state").notNull().default("open"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+});
+
+export const uploadChunks = pgTable("upload_chunks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull(),
+  uploadId: uuid("upload_id").notNull(),
+  chunkIndex: integer("chunk_index").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  etag: text("etag"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+});
+
 export const transcripts = pgTable("transcripts", {
   id: uuid("id").primaryKey().defaultRandom(),
   orgId: uuid("org_id").notNull(),

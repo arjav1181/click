@@ -78,6 +78,9 @@ jobs:
       - name: Bot runner tests
         run: pnpm --filter @click/bot test
 
+      - name: Backend tests
+        run: pnpm --filter @click/backend test
+
       - name: Health check
         run: |
           # The app builds with output: "standalone", so start the real

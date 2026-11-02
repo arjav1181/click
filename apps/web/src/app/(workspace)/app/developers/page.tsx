@@ -408,6 +408,12 @@ export default function DevelopersPage() {
           </Field>
           <div className="grid gap-2">
             <p className="text-sm font-semibold text-text">Scopes</p>
+            <p className="text-xs text-text-muted">
+              The desktop app, extension and mobile app need{" "}
+              <span className="mono">recordings:write</span> to upload a recording, and{" "}
+              <span className="mono">meetings:read</span> plus{" "}
+              <span className="mono">transcripts:read</span> to show your meetings and live transcript.
+            </p>
             <div className="grid gap-1 sm:grid-cols-2">
               {scopes.map((scope) => (
                 <label key={scope} className="flex items-center gap-2 text-sm text-text">

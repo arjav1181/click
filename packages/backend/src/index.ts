@@ -13,3 +13,4 @@ export * from "./jobs";
 export * from "./queue";
 export * from "./webhooks";
 export * from "./botService";
+export * from "./uploadProtocol";

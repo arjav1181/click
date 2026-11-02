@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
-import { withTenant, type TenantContext } from "../client";
+import { withAuth, withTenant, type TenantContext } from "../client";
 import { apiKeys, webhookDeliveries, webhookEndpoints } from "../schema";
 import { randomToken, sha256 } from "../password";
 
@@ -41,6 +41,8 @@ const AVAILABLE_SCOPES = [
   "action-items:read",
   "search:read",
   "webhooks:manage",
+  // Uploading a recording from the desktop, extension or mobile client.
+  "recordings:write",
 ];
 
 export function availableScopes(): string[] {
@@ -59,6 +61,50 @@ export const AVAILABLE_WEBHOOK_EVENTS = [
 
 export function availableWebhookEvents(): string[] {
   return AVAILABLE_WEBHOOK_EVENTS;
+}
+
+export interface ApiKeyAuth {
+  id: string;
+  orgId: string;
+  userId: string;
+  name: string;
+  scopes: string[];
+}
+
+/**
+ * Resolves a raw `ck_…` key to its workspace.
+ *
+ * The lookup is by hash because only the hash is stored, and it runs as
+ * `click_auth` (bypasses RLS) because the workspace is not known until the key
+ * is found. `lastUsedAt` is refreshed here so the developers screen can show
+ * which keys are actually in use.
+ */
+export async function verifyApiKey(rawKey: string): Promise<ApiKeyAuth | null> {
+  const hash = sha256(rawKey);
+  return withAuth(async (tx) => {
+    const rows = await tx
+      .select({
+        id: apiKeys.id,
+        orgId: apiKeys.orgId,
+        userId: apiKeys.userId,
+        name: apiKeys.name,
+        scopes: apiKeys.scopes,
+        revokedAt: apiKeys.revokedAt,
+      })
+      .from(apiKeys)
+      .where(eq(apiKeys.keyHash, hash))
+      .limit(1);
+    const key = rows[0];
+    if (!key || key.revokedAt) return null;
+    await tx.update(apiKeys).set({ lastUsedAt: new Date() }).where(eq(apiKeys.id, key.id));
+    return {
+      id: key.id,
+      orgId: key.orgId,
+      userId: key.userId,
+      name: key.name,
+      scopes: key.scopes ?? [],
+    };
+  });
 }
 
 export async function listApiKeys(ctx: TenantContext): Promise<ApiKeyRow[]> {

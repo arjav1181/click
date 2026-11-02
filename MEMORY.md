@@ -82,8 +82,20 @@ Repo layout: pnpm workspace + Turborepo — apps/web, apps/worker, apps/asr; pac
 - **Proved locally**: manual join → runner → Chromium → `meet.google.com` → the Meet denial path → lifecycle callbacks → `bot_jobs.state='failed'`, `error_code='join_denied: …'`. A live admitted join could not be exercised (no real meeting or host in the sandbox).
 - **Deployment**: `infra/docker/bot.Dockerfile`, the `bot` service in `infra/compose/docker-compose.yml` with a `botdata` volume, and a bot section in `docs/self-hosting.md` and `.env.example`.
 
+## Client API (bearer auth + chunked uploads) — DONE
+- **Decisions (user)**: clients authenticate with the existing scoped API keys (`ck_…`), not a new device-token flow; uploads are chunked; the mobile app is a PWA inside `apps/web`; the extension and mobile PWA ship before the Electron desktop app.
+- **Bearer auth**: `packages/db/src/repositories/developers.ts` gained `verifyApiKey(rawKey)` — looks the key up by sha256 hash through `withAuth` (BYPASSRLS, because the workspace is unknown until the key is found), refuses revoked keys and refreshes `lastUsedAt`. `apps/web/src/server/clientAuth.ts` adds `requireClientAuth(request, scope)` (401 for a missing/bogus key, 403 `insufficient_scope` when the scope is missing, 403 when the key's owner is no longer a member) plus `corsHeaders` and `clientHandler`.
+- **New scope**: `recordings:write` (added to `AVAILABLE_SCOPES`) for uploading; `meetings:read` and `transcripts:read` cover reading. `webhooks:manage` unchanged.
+- **Routes** (all under `/api/v1/client/`, CORS-enabled): `GET /meetings`, `GET /meetings/[id]/transcript`, `POST /uploads` (start), `PUT /uploads/[id]/chunks/[index]`, `GET /uploads/[id]` (status/resume), `POST /uploads/[id]/complete`.
+- **Protocol**: 8 MiB chunks (`CHUNK_SIZE` in `packages/backend/src/uploadProtocol.ts`). The chunk index is the position in the recording, not the arrival order; a re-sent chunk replaces the old one (idempotent), so a client resumes from `GET /uploads/[id]`. `complete` joins the chunks in index order, writes the `recordings` row, sets the meeting to `processing` and enqueues the normal `transcribe` job — so a client recording behaves like any other meeting.
+- **Storage**: `packages/backend/src/storage.ts` gained real S3 multipart (`CreateMultipartUpload`/`UploadPart`/`CompleteMultipartUpload`/`AbortMultipartUpload`); the local driver writes one file per part and joins them on complete, so both drivers speak the same protocol.
+- **Schema**: new `upload_sessions` and `upload_chunks` tables (migration `packages/db/migrations/0005_client_uploads.sql`, RLS policies added by hand because the init migration only loops over tables that existed when it ran). `packages/db/src/schema.ts` regenerated.
+- **CORS**: allowed origins come from `CLIENT_API_ORIGINS` (comma separated, `*` for any). The credential is a bearer token, never a cookie, so a cross-origin page cannot borrow a signed-in session.
+- **Verified**: `.data/smoke/smoke-client-api.mjs` — 30/30 checks (key creation, scope enforcement, bogus/missing/revoked keys, chunked upload out of order, re-sent chunk not double counted, oversized chunk, chunk past the declared end, complete, complete twice, transcript read, cross-workspace isolation). `packages/backend/src/uploadProtocol.test.ts` — 5/5 unit tests. `pnpm typecheck`, `pnpm build`, RLS test and the workspace smoke test all pass.
+- Documented in `docs/development.md` under "The client API".
+
 ## Schema (packages/db/ddl/schema.sql)
-- 64 tables, RLS enabled on every tenant table, policies in `packages/db/ddl/schema.sql` and `packages/db/migrations/0000_init.sql`.
+- 67 tables, RLS enabled on every tenant table, policies in `packages/db/ddl/schema.sql` and `packages/db/migrations/0000_init.sql`.
 - DDL executed on PostgreSQL 17 locally; pgvector unavailable in the sandbox, so a patched copy (`vector(1536)`→`jsonb`, HNSW index skipped) was applied via `MIGRATIONS_DIR`. Production/CI use `pgvector/pgvector:pg17`.
 - Tenancy: org_id denormalised; RLS per table; app sets `app.org_id`/`app.user_id` per request; child tables use exists policies; auth tables self-scoped; `click_auth` role with bypassrls for login/session.
 - Views: `v_meeting_overview`, `v_org_usage` are `security_invoker = true`.

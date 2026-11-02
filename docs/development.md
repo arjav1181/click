@@ -112,12 +112,56 @@ in `organizations.settings`). A job that would exceed the cap throws
 `BudgetExceededError`, which the API surfaces as `402 budget_exceeded`. The
 per-unit prices are operator-supplied estimates, not Click prices.
 
+## The client API
+
+The browser app authenticates with a `click_session` cookie. The desktop app,
+the extension and the mobile app cannot use a cookie, so they present a
+scoped API key instead: `Authorization: Bearer ck_…`.
+
+A key is created under **Developers → API keys** and carries the scopes it
+may use. The routes under `/api/v1/client/` are the ones a client app uses:
+
+| Route | Scope | What it does |
+| --- | --- | --- |
+| `GET /api/v1/client/meetings` | `meetings:read` | Lists the workspace's meetings |
+| `GET /api/v1/client/meetings/[id]/transcript` | `transcripts:read` | The transcript so far, for the live overlay |
+| `POST /api/v1/client/uploads` | `recordings:write` | Starts a chunked upload |
+| `PUT /api/v1/client/uploads/[id]/chunks/[index]` | `recordings:write` | Sends one chunk |
+| `GET /api/v1/client/uploads/[id]` | `recordings:write` | Reports the chunks already received |
+| `POST /api/v1/client/uploads/[id]/complete` | `recordings:write` | Joins the chunks and starts transcription |
+
+The upload protocol is chunked so a long capture survives a dropped
+connection:
+
+1. `POST /api/v1/client/uploads` with the title, the mime type and (when the
+   client knows it) the total size. The server creates the meeting and answers
+   with an `uploadId` and the `chunkSize` to use.
+2. The client sends each chunk to `.../chunks/[index]`, where the index is the
+   chunk's position in the recording, not the order it was sent. A chunk that
+   is re-sent replaces the old one, so a retry is safe.
+3. `GET /api/v1/client/uploads/[id]` tells a resumed client which chunks
+   already arrived, so it sends only the missing ones.
+4. `POST /api/v1/client/uploads/[id]/complete` joins the chunks in index
+   order, writes the recording and enqueues the normal transcription job. The
+   meeting then behaves like any other meeting in the workspace.
+
+Chunks are 8 MiB (`CHUNK_SIZE` in `packages/backend/src/uploadProtocol.ts`).
+The size limit comes from `MAX_UPLOAD_MB`, the same limit the web upload uses.
+
+These routes answer with CORS headers so a `chrome-extension://` page or an
+Electron `file://` page can call them. The allowed origins come from
+`CLIENT_API_ORIGINS` (a comma-separated list, `*` for any). The credential is
+a bearer token and never a cookie, so a cross-origin page cannot borrow a
+signed-in session.
+
 ## Testing
 
 ```bash
 pnpm typecheck
 pnpm build
 pnpm --filter @click/db test:rls     # needs a migrated database
+pnpm --filter @click/backend test    # pure logic, no database
+pnpm --filter @click/bot test        # pure logic, no browser
 ```
 
 The RLS test creates a throwaway organization and asserts that:
@@ -129,7 +173,8 @@ The RLS test creates a throwaway organization and asserts that:
 5. the `organizations` table is scoped too.
 
 CI (`.github/workflows/ci.yml`) runs typecheck, build, migrate, seed, the RLS
-test and a health check against `pgvector/pgvector:pg17` and Redis.
+test, the backend and bot unit tests and a health check against
+`pgvector/pgvector:pg17` and Redis.
 
 There is no browser test suite yet. When you add one, drive it through the
 running app rather than mocking the API — the API is the thing most likely to
