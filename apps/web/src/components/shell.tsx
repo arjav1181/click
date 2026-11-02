@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button, ThemeToggle } from "@click/ui";
+import { WorkspaceMenu, type WorkspaceSummary } from "@/components/workspace-menu";
 
 const navSections: { title: string; items: { href: string; label: string; screen?: string }[] }[] = [
   {
@@ -121,7 +122,17 @@ export interface HeaderUser {
   orgName: string | null;
 }
 
-export function Header({ title, user }: { title?: string; user?: HeaderUser }) {
+export function Header({
+  title,
+  user,
+  workspaces = [],
+  activeWorkspaceId = null,
+}: {
+  title?: string;
+  user?: HeaderUser;
+  workspaces?: WorkspaceSummary[];
+  activeWorkspaceId?: string | null;
+}) {
   const [menuOpen, setMenuOpen] = React.useState(false);
   const initials = (user?.name ?? user?.email ?? "?").trim().slice(0, 1).toUpperCase();
 
@@ -136,17 +147,19 @@ export function Header({ title, user }: { title?: string; user?: HeaderUser }) {
           ☰
         </button>
         <h1 className="truncate text-base font-semibold text-text">{title ?? "Click"}</h1>
-        {user?.orgName ? (
-          <span className="hidden truncate rounded-full bg-surface-2 px-2 py-0.5 text-xs text-text-muted sm:inline">
-            {user.orgName}
-          </span>
-        ) : null}
+        <WorkspaceMenu workspaces={workspaces} activeWorkspaceId={activeWorkspaceId} />
       </div>
       <div className="flex items-center gap-2">
-        <Button variant="secondary" size="sm">
-          Record
-        </Button>
-        <Button size="sm">New meeting</Button>
+        {/* The small header keeps room for the workspace chip; the page
+            itself carries the record and new-meeting actions. */}
+        <span className="hidden sm:inline-flex">
+          <Button variant="secondary" size="sm">
+            Record
+          </Button>
+        </span>
+        <span className="hidden sm:inline-flex">
+          <Button size="sm">New meeting</Button>
+        </span>
         {user ? (
           <div className="relative">
             <button

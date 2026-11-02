@@ -1729,6 +1729,38 @@ export async function deleteProviderConfig(
   );
 }
 
+export interface WorkspaceRow {
+  id: string;
+  name: string;
+  slug: string;
+  role: string;
+  isActive: boolean;
+}
+
+/** Every workspace the account belongs to. */
+export async function fetchWorkspaces(): Promise<ApiResult<{ workspaces: WorkspaceRow[] }>> {
+  return apiFetch<{ workspaces: WorkspaceRow[] }>("/api/v1/workspaces");
+}
+
+/** Creates a workspace and opens it. */
+export async function createWorkspace(
+  name: string,
+): Promise<ApiResult<{ workspace: WorkspaceRow }>> {
+  return apiFetch<{ workspace: WorkspaceRow }>("/api/v1/workspaces", {
+    method: "POST",
+    body: JSON.stringify({ name }),
+  });
+}
+
+/** Switches the account to another workspace. */
+export async function switchWorkspace(
+  id: string,
+): Promise<ApiResult<{ workspace: WorkspaceRow }>> {
+  return apiFetch<{ workspace: WorkspaceRow }>(`/api/v1/workspaces/${id}/switch`, {
+    method: "POST",
+  });
+}
+
 export async function searchMeetings(query: string): Promise<SearchResult[]> {
   const payload = await request<{ results: SearchResult[] }>(
     `/api/v1/search?q=${encodeURIComponent(query)}`,

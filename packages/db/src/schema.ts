@@ -46,6 +46,7 @@ export const users = pgTable("users", {
   locale: text("locale").notNull().default("en"),
   timezone: text("timezone").notNull().default("UTC"),
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+  activeOrgId: uuid("active_org_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
 });

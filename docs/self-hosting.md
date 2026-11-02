@@ -269,7 +269,6 @@ recordings manually or set audio retention to zero.
 
 ## Known gaps
 
-SAML SSO, calendar sync, multi-workspace switching, outgoing webhooks, an
-automatic retention purge, and Redis-backed rate limiting (the current limiter
-is per process) are not finished yet. See the issue tracker for the current
-state of each.
+SAML SSO, outgoing webhooks, an automatic retention purge, and Redis-backed
+rate limiting (the current limiter is per process) are not finished yet. See
+the issue tracker for the current state of each.

@@ -60,6 +60,15 @@ Repo layout: pnpm workspace + Turborepo — apps/web, apps/worker, apps/asr; pac
 - Smoke tests (25/25 + 11/11) live in `.data/smoke/` (gitignored); they prove signing, backoff, manual retry, 403/409/502 paths and that tokens are never returned.
 - Not exercised end-to-end: live Jira/Linear/Asana/ClickUp/Trello/monday.com calls (no vendor credentials in this sandbox).
 
+## Multi-workspace switching — DONE
+- Scope decision (user): the switch is **account-wide**, stored on `users.active_org_id`, so it follows the account across browsers and devices. There is no personal workspace — every workspace is an organization with memberships.
+- Schema: `users.active_org_id uuid references organizations(id) on delete set null` in `packages/db/ddl/schema.sql`; migration `packages/db/migrations/0004_multi_workspace.sql` (backfills the newest active membership). `packages/db/src/schema.ts` is regenerated with `pnpm --filter @click/db schema` — never hand-edited.
+- `packages/db/src/repositories/auth.ts`: `resolveSession()`/`findUserById()` now resolve the pinned workspace (`resolveActiveMembership`) instead of "newest membership wins"; a stale or missing pin is repaired to the newest active membership. `createUser()` and `acceptInvitation()` pin their workspace; new helpers `createWorkspace()`, `switchWorkspace()` and the existing `listMemberships()`.
+- Routes: `GET/POST /api/v1/workspaces` (list account-wide workspaces; create makes the caller owner and opens it) and `POST /api/v1/workspaces/[id]/switch` (404 when the account is not an active member). Both write audit rows (`org.created`, `org.switched`).
+- UI: `apps/web/src/components/workspace-menu.tsx` — the header workspace chip is now a dropdown (list with the current workspace marked, click to switch, inline "New workspace" name field, link to the workspace settings). `apps/web/src/components/shell.tsx` renders it; `apps/web/src/app/(workspace)/layout.tsx` passes the membership list.
+- Seed: a second demo workspace ("Click Labs", Ava owner / Sam member) with one meeting, so the switcher has a real choice.
+- Verified: `.data/smoke/smoke-workspaces.mjs` — 14/14 checks (list, create+own+open, tenant isolation in both directions, switch back, 404 for a foreign workspace). Screenshots in `replica/clone-screens/S07-workspace-{menu,new,menu-mobile}.png`.
+
 ## Schema (packages/db/ddl/schema.sql)
 - 64 tables, RLS enabled on every tenant table, policies in `packages/db/ddl/schema.sql` and `packages/db/migrations/0000_init.sql`.
 - DDL executed on PostgreSQL 17 locally; pgvector unavailable in the sandbox, so a patched copy (`vector(1536)`→`jsonb`, HNSW index skipped) was applied via `MIGRATIONS_DIR`. Production/CI use `pgvector/pgvector:pg17`.
@@ -113,7 +122,7 @@ M0 foundation → M1 vertical slice (upload/transcribe/summary/search) → M2 bo
 5. Trademark sweep for "Click".
 
 ## Next steps
-- Locked build order (user-approved): 1) webhooks + task push ✅ → 2) multi-workspace schema change (membership table + workspace switcher) → 3) Playwright bot adapter (stealth + headed, plus research into other capture paths) → 4) thin real client apps (Electron desktop, Manifest V3 extension, mobile PWA) → 5) live streaming + in-meeting AI, transcript intelligence, governance (SCIM, security headers, IP allowlist, TOTP, SSO enforcement) → 6) final QA (replica-test phase).
+- Locked build order (user-approved): 1) webhooks + task push ✅ → 2) multi-workspace schema change (membership table + workspace switcher) ✅ → 3) Playwright bot adapter (stealth + headed, plus research into other capture paths) → 4) thin real client apps (Electron desktop, Manifest V3 extension, mobile PWA) → 5) live streaming + in-meeting AI, transcript intelligence, governance (SCIM, security headers, IP allowlist, TOTP, SSO enforcement) → 6) final QA (replica-test phase).
 - Known gaps to close later: SAML SSO (future plan only, OIDC stays supported), two-way task status sync, the `apps/bot` provider clients (Zoom/Meet/Teams), Playwright browser test suite, response security headers.
 - The user wants everything built and iterated before the test phase starts.
 - Record in MEMORY.md after each phase.

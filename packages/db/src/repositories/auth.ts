@@ -1,5 +1,5 @@
 import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
-import { withAuth } from "../client";
+import { withAuth, type Tx } from "../client";
 import {
   authIdentities,
   authTokens,
@@ -77,6 +77,48 @@ export async function findUserByEmail(email: string) {
   });
 }
 
+/**
+ * Every membership of a user, newest first. The active workspace is the one
+ * the account pinned (users.active_org_id); when that pin is missing or stale
+ * the newest active membership is used and the pin is repaired.
+ */
+async function listUserMemberships(tx: Tx, userId: string) {
+  return tx
+    .select({
+      orgId: memberships.orgId,
+      orgName: organizations.name,
+      orgSlug: organizations.slug,
+      role: memberships.role,
+      status: memberships.status,
+      createdAt: memberships.createdAt,
+    })
+    .from(memberships)
+    .innerJoin(organizations, eq(organizations.id, memberships.orgId))
+    .where(eq(memberships.userId, userId))
+    .orderBy(desc(memberships.createdAt));
+}
+
+/**
+ * Picks the workspace a session should land in and keeps the account's pin
+ * in sync. A user can belong to several workspaces; the pin decides which one
+ * is open, so the choice follows the account across browsers. The pin is only
+ * written for active memberships.
+ */
+async function resolveActiveMembership(
+  tx: Tx,
+  userId: string,
+  pinnedOrgId: string | null,
+  all: Awaited<ReturnType<typeof listUserMemberships>>,
+) {
+  const active = all.filter((row) => row.status === "active");
+  const pinned = pinnedOrgId ? active.find((row) => row.orgId === pinnedOrgId) : undefined;
+  const chosen = pinned ?? active[0] ?? null;
+  if (chosen && chosen.orgId !== pinnedOrgId) {
+    await tx.update(users).set({ activeOrgId: chosen.orgId }).where(eq(users.id, userId));
+  }
+  return chosen;
+}
+
 export async function findUserById(id: string) {
   return withAuth(async (tx) => {
     const rows = await tx
@@ -88,20 +130,23 @@ export async function findUserById(id: string) {
         locale: users.locale,
         timezone: users.timezone,
         emailVerifiedAt: users.emailVerifiedAt,
-        orgId: memberships.orgId,
-        orgName: organizations.name,
-        orgSlug: organizations.slug,
-        role: memberships.role,
+        activeOrgId: users.activeOrgId,
       })
       .from(users)
-      .leftJoin(memberships, eq(memberships.userId, users.id))
-      .leftJoin(organizations, eq(organizations.id, memberships.orgId))
       .where(eq(users.id, id))
-      // A user can belong to more than one workspace; the newest membership
-      // wins so accepting an invitation switches the active workspace.
-      .orderBy(desc(memberships.createdAt))
       .limit(1);
-    return rows[0] ? mapUser(rows[0]) : null;
+    const row = rows[0];
+    if (!row) return null;
+    const all = await listUserMemberships(tx, id);
+    const membership =
+      (await resolveActiveMembership(tx, id, row.activeOrgId, all)) ?? all[0] ?? null;
+    return mapUser({
+      ...row,
+      orgId: membership?.orgId ?? null,
+      orgName: membership?.orgName ?? null,
+      orgSlug: membership?.orgSlug ?? null,
+      role: membership?.role ?? null,
+    });
   });
 }
 
@@ -145,6 +190,7 @@ export async function createUser(input: {
     const org = orgRows[0];
 
     await tx.insert(memberships).values({ orgId: org.id, userId: user.id, role: "owner", status: "active" });
+    await tx.update(users).set({ activeOrgId: org.id }).where(eq(users.id, user.id));
     await tx.insert(authIdentities).values({
       userId: user.id,
       provider: "password",
@@ -188,23 +234,26 @@ export async function resolveSession(token: string) {
         locale: users.locale,
         timezone: users.timezone,
         emailVerifiedAt: users.emailVerifiedAt,
-        orgId: memberships.orgId,
-        orgName: organizations.name,
-        orgSlug: organizations.slug,
-        role: memberships.role,
+        activeOrgId: users.activeOrgId,
       })
       .from(sessions)
       .innerJoin(users, eq(users.id, sessions.userId))
-      .leftJoin(memberships, and(eq(memberships.userId, users.id), eq(memberships.status, "active")))
-      .leftJoin(organizations, eq(organizations.id, memberships.orgId))
       .where(and(eq(sessions.tokenHash, sha256(token)), gt(sessions.expiresAt, new Date())))
-      // Newest membership wins so accepting an invitation switches workspace.
-      .orderBy(desc(memberships.createdAt))
       .limit(1);
     const row = rows[0];
     if (!row) return null;
     await tx.update(users).set({ lastSeenAt: new Date() }).where(eq(users.id, row.id));
-    return mapUser(row);
+    // The tenant context comes from the pinned workspace, so a switch applies
+    // to every device the account signs in on.
+    const all = await listUserMemberships(tx, row.id);
+    const membership = await resolveActiveMembership(tx, row.id, row.activeOrgId, all);
+    return mapUser({
+      ...row,
+      orgId: membership?.orgId ?? null,
+      orgName: membership?.orgName ?? null,
+      orgSlug: membership?.orgSlug ?? null,
+      role: membership?.role ?? null,
+    });
   });
 }
 
@@ -279,6 +328,69 @@ export async function listMemberships(userId: string) {
   });
 }
 
+/** Turns a workspace name into a unique slug. */
+async function uniqueSlug(tx: Tx, name: string) {
+  const base =
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 40) || "workspace";
+  const existing = await tx
+    .select({ id: organizations.id })
+    .from(organizations)
+    .where(eq(organizations.slug, base))
+    .limit(1);
+  return existing.length > 0 ? `${base}-${randomToken(3).slice(0, 4).toLowerCase()}` : base;
+}
+
+/**
+ * Creates a workspace owned by the user and opens it. Every workspace is an
+ * organization with memberships; there is no personal workspace.
+ */
+export async function createWorkspace(input: { userId: string; name: string }) {
+  return withAuth(async (tx) => {
+    const slug = await uniqueSlug(tx, input.name);
+    const orgRows = await tx
+      .insert(organizations)
+      .values({ name: input.name.slice(0, 120), slug })
+      .returning();
+    const org = orgRows[0];
+    await tx
+      .insert(memberships)
+      .values({ orgId: org.id, userId: input.userId, role: "owner", status: "active" });
+    await tx.update(users).set({ activeOrgId: org.id }).where(eq(users.id, input.userId));
+    return { id: org.id, name: org.name, slug: org.slug, role: "owner" as const };
+  });
+}
+
+/** Points the account at another workspace the user is an active member of. */
+export async function switchWorkspace(input: { userId: string; orgId: string }) {
+  return withAuth(async (tx) => {
+    const rows = await tx
+      .select({
+        orgId: memberships.orgId,
+        orgName: organizations.name,
+        orgSlug: organizations.slug,
+        role: memberships.role,
+      })
+      .from(memberships)
+      .innerJoin(organizations, eq(organizations.id, memberships.orgId))
+      .where(
+        and(
+          eq(memberships.userId, input.userId),
+          eq(memberships.orgId, input.orgId),
+          eq(memberships.status, "active"),
+        ),
+      )
+      .limit(1);
+    const row = rows[0];
+    if (!row) return null;
+    await tx.update(users).set({ activeOrgId: input.orgId }).where(eq(users.id, input.userId));
+    return row;
+  });
+}
+
 export async function createInvitation(input: {
   orgId: string;
   email: string;
@@ -322,6 +434,8 @@ export async function acceptInvitation(token: string, userId: string) {
         set: { status: "active" },
       });
     await tx.update(invitations).set({ acceptedAt: new Date() }).where(eq(invitations.id, invite.id));
+    // Accepting an invitation opens that workspace.
+    await tx.update(users).set({ activeOrgId: invite.orgId }).where(eq(users.id, userId));
     return { orgId: invite.orgId };
   });
 }

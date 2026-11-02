@@ -59,10 +59,14 @@ create table users (
   locale        text not null default 'en',
   timezone      text not null default 'UTC',
   last_seen_at  timestamptz,
+  -- The workspace this account is currently looking at. It follows the
+  -- account across browsers, so switching is one column update.
+  active_org_id uuid references organizations(id) on delete set null,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
 create index on users (email);
+create index on users (active_org_id);
 
 create table auth_identities (
   id         uuid primary key default gen_random_uuid(),

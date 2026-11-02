@@ -15,6 +15,8 @@ if (!connectionString) {
 
 const IDS = {
   org: "11111111-1111-4111-8111-111111111111",
+  // A second workspace so the switcher has something to switch to.
+  org2: "19191919-1919-4191-8191-191919191919",
   ava: "22222222-2222-4222-8222-222222222222",
   sam: "33333333-3333-4333-8333-333333333333",
   maya: "44444444-4444-4444-8444-444444444444",
@@ -30,6 +32,7 @@ const IDS = {
   meeting2: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
   meeting3: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
   meeting4: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+  meeting5: "edededed-eded-4ded-8ded-edededededed",
   transcript1: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
   transcript2: "ffffffff-ffff-4fff-8fff-ffffffffffff",
   note1: "99999999-9999-4999-8999-999999999999",
@@ -37,6 +40,12 @@ const IDS = {
   providerLlm: "13131313-1313-4131-8131-131313131313",
   providerEmbedding: "16161616-1616-4161-8161-161616161616",
   retention: "14141414-1414-4141-8141-141414141414",
+  calendar: "7c7c7c7c-7c7c-4c7c-8c7c-7c7c7c7c7c7c",
+  eventBrief: "9b9b9b9b-9b9b-49b9-89b9-b9b9b9b9b9b9",
+  eventUpcoming: "9b9b9b9b-9b9b-49b9-89b9-b9b9b9b9b9b0",
+  eventPast: "9b9b9b9b-9b9b-49b9-89b9-b9b9b9b9b9b1",
+  ruleWeekly: "7d7d7d7d-7d7d-4d7d-8d7d-7d7d7d7d7d7d",
+  ruleOneOnOne: "7d7d7d7d-7d7d-4d7d-8d7d-7d7d7d7d7d7e",
 };
 
 const now = Date.now();
@@ -74,6 +83,13 @@ await q(
   ],
 );
 
+await q(
+  `insert into organizations (id, name, slug, domain_allowlist, settings)
+   values ($1,'Click Labs','click-labs','{}','{"ai_budget_cap": 25}'::jsonb)
+   on conflict (id) do nothing`,
+  [IDS.org2],
+);
+
 const passwordHash = await hashPassword(process.env.SEED_PASSWORD ?? "click-demo-2026");
 for (const [id, email, name] of [
   [IDS.ava, "ava@click.local", "Ava Chen"],
@@ -100,6 +116,24 @@ for (const [userId, role, status] of [
     [IDS.org, userId, role, status],
   );
 }
+
+// Ava also owns the second workspace and starts in the first one, so the
+// switcher shows a real choice.
+for (const [userId, role] of [
+  [IDS.ava, "owner"],
+  [IDS.sam, "member"],
+] as const) {
+  await q(
+    `insert into memberships (org_id, user_id, role, status)
+     values ($1,$2,$3,'active') on conflict (org_id, user_id) do nothing`,
+    [IDS.org2, userId, role],
+  );
+}
+
+await q(
+  `update users set active_org_id = $2 where id = $1`,
+  [IDS.ava, IDS.org],
+);
 
 await q(
   `insert into retention_policies (id, org_id, transcript_days, audio_days, recording_mode)
@@ -242,6 +276,21 @@ for (const m of meetings) {
     [m.id, IDS.org, IDS.ava, m.title, m.start, m.end, m.duration, m.source, m.status, m.privacy, m.consent],
   );
 }
+
+// One meeting in the second workspace, so switching shows different data.
+await q(
+  `insert into meetings
+     (id, org_id, owner_id, title, started_at, ended_at, duration_s, source, status, privacy, consent_state, language)
+   values ($1,$2,$3,'Research readout',$4,$5,900,'bot','ready','workspace','acknowledged','en')
+   on conflict (id) do nothing`,
+  [
+    IDS.meeting5,
+    IDS.org2,
+    IDS.ava,
+    at(-4, 13),
+    at(-4, 13.25),
+  ],
+);
 
 await q(
   `insert into meeting_folders (meeting_id, folder_id) values ($1,$2), ($3,$2) on conflict do nothing`,
@@ -541,6 +590,105 @@ for (const event of auditHistory) {
       event.ip,
       event.at,
     ],
+  );
+}
+
+// Calendar data for the upcoming-event list and the pre-meeting brief. The
+// token is a placeholder: the demo instance has no OAuth credentials, and the
+// sync route reports that instead of pretending the connection is live.
+await q(
+  `insert into calendar_connections (id, org_id, user_id, provider, account_email, refresh_token_enc, status, auto_join)
+   values ($1,$2,$3,'google','ava@click.local','seed-placeholder','connected',true)
+   on conflict (id) do nothing`,
+  [IDS.calendar, IDS.org, IDS.ava],
+);
+
+const calendarEvents = [
+  {
+    id: IDS.eventBrief,
+    externalId: "seed-northwind-pilot",
+    title: "Northwind pilot kickoff",
+    description: "Walk through the pilot scope and success metrics with the Northwind team.",
+    startsAt: at(1, 14),
+    endsAt: at(1, 15),
+    organizer: "ava@click.local",
+    attendees: [
+      { email: "ava@click.local", name: "Ava Chen" },
+      { email: "sam@click.local", name: "Sam Park" },
+      { email: "maya@click.local", name: "Maya Iyer" },
+    ],
+    meetingUrl: "https://meet.google.com/click-demo-brief",
+    autoJoin: true,
+    botStatus: "scheduled",
+  },
+  {
+    id: IDS.eventUpcoming,
+    externalId: "seed-design-review",
+    title: "Design review",
+    description: "Weekly review of the workspace redesign.",
+    startsAt: at(2, 10),
+    endsAt: at(2, 11),
+    organizer: "sam@click.local",
+    attendees: [
+      { email: "sam@click.local", name: "Sam Park" },
+      { email: "maya@click.local", name: "Maya Iyer" },
+    ],
+    meetingUrl: "https://meet.google.com/click-demo-review",
+    autoJoin: true,
+    botStatus: "none",
+  },
+  {
+    id: IDS.eventPast,
+    externalId: "seed-roadmap-sync",
+    title: "Weekly roadmap sync",
+    description: "Roadmap status from last week.",
+    startsAt: at(-2, 10),
+    endsAt: at(-2, 11),
+    organizer: "ava@click.local",
+    attendees: [
+      { email: "ava@click.local", name: "Ava Chen" },
+      { email: "sam@click.local", name: "Sam Park" },
+    ],
+    meetingUrl: "https://meet.google.com/click-demo-roadmap",
+    autoJoin: false,
+    botStatus: "joined",
+  },
+];
+
+for (const event of calendarEvents) {
+  await q(
+    `insert into calendar_events (id, org_id, connection_id, external_id, title, description, starts_at, ends_at,
+       organizer_email, attendees, meeting_url, provider, auto_join, bot_status)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,'google',$12,$13)
+     on conflict (id) do nothing`,
+    [
+      event.id,
+      IDS.org,
+      IDS.calendar,
+      event.externalId,
+      event.title,
+      event.description,
+      event.startsAt,
+      event.endsAt,
+      event.organizer,
+      JSON.stringify(event.attendees),
+      event.meetingUrl,
+      event.autoJoin,
+      event.botStatus,
+    ],
+  );
+}
+
+// Two rules so the screen shows both a join and a skip decision.
+for (const rule of [
+  { id: IDS.ruleWeekly, titlePattern: "Weekly", hostPattern: null, attendeeEmail: null, autoJoin: true, priority: 10 },
+  { id: IDS.ruleOneOnOne, titlePattern: "1:1", hostPattern: null, attendeeEmail: null, autoJoin: false, priority: 5 },
+]) {
+  await q(
+    `insert into calendar_rules (id, org_id, connection_id, title_pattern, host_pattern, attendee_email, auto_join, priority)
+     values ($1,$2,$3,$4,$5,$6,$7,$8)
+     on conflict (id) do nothing`,
+    [rule.id, IDS.org, IDS.calendar, rule.titlePattern, rule.hostPattern, rule.attendeeEmail, rule.autoJoin, rule.priority],
   );
 }
 

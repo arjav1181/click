@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { authRepo } from "@click/db";
 import { Sidebar, Header } from "@/components/shell";
 import { getSession } from "@/server/auth";
 
@@ -7,6 +8,10 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
   if (!session) {
     redirect("/login?next=/app");
   }
+
+  // The switcher lists every workspace the account belongs to, not only the
+  // open one, so it needs the full membership list.
+  const memberships = await authRepo.listMemberships(session.id);
 
   return (
     <div className="flex min-h-screen bg-bg">
@@ -18,6 +23,13 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
             email: session.email,
             orgName: session.orgName,
           }}
+          workspaces={memberships.map((membership) => ({
+            id: membership.orgId,
+            name: membership.orgName,
+            slug: membership.orgSlug,
+            role: membership.role,
+          }))}
+          activeWorkspaceId={session.orgId}
         />
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
