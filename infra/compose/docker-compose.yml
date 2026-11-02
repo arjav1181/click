@@ -9,6 +9,7 @@ x-app-env: &app-env
   APP_SECRET: ${APP_SECRET:-change-me-in-production}
   ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
   BOT_WEBHOOK_SECRET: ${BOT_WEBHOOK_SECRET:-change-me-bot-secret}
+  BOT_SERVICE_URL: http://bot:8090
   STORAGE_DRIVER: s3
   S3_ENDPOINT: http://minio:9000
   S3_REGION: ${S3_REGION:-us-east-1}
@@ -162,6 +163,36 @@ services:
       retries: 20
       start_period: 30s
 
+  bot:
+    build:
+      context: ../..
+      dockerfile: infra/docker/bot.Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      BOT_PORT: "8090"
+      BOT_MAX_CONCURRENT: ${BOT_MAX_CONCURRENT:-1}
+      BOT_HEADLESS: ${BOT_HEADLESS:-true}
+      BOT_UI_LOCALE: ${BOT_UI_LOCALE:-en-US}
+      BOT_MAX_DURATION_MINUTES: ${BOT_MAX_DURATION_MINUTES:-240}
+    shm_size: "1gb"
+    volumes:
+      - botdata:/data/bot
+    expose:
+      - "8090"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:8090/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
   asr:
     build:
       context: ../../apps/asr
@@ -213,6 +244,7 @@ volumes:
   pgdata:
   redisdata:
   miniodata:
+  botdata:
   asr_models:
   caddydata:
   caddyconfig:

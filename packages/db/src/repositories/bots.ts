@@ -148,7 +148,12 @@ export async function failBotJob(ctx: TenantContext, id: string, code: string): 
   await withTenant(ctx, async (tx) => {
     await tx
       .update(botJobs)
-      .set({ state: "failed", errorCode: code, updatedAt: new Date() })
+      .set({
+        state: "failed",
+        errorCode: code,
+        attempts: sql`${botJobs.attempts} + 1`,
+        updatedAt: new Date(),
+      })
       .where(and(eq(botJobs.id, id), eq(botJobs.orgId, ctx.orgId)));
   });
 }
@@ -187,6 +192,7 @@ export async function updateBotJobState(
         state: input.state,
         lobbyReason: input.state === "lobby" ? (input.detail ?? null) : null,
         errorCode: input.state === "failed" ? (input.detail ?? null) : null,
+        attempts: input.state === "failed" ? sql`${botJobs.attempts} + 1` : undefined,
         startedAt: input.startedAt ?? undefined,
         endedAt: input.endedAt ?? undefined,
       })

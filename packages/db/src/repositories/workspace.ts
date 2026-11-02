@@ -698,6 +698,7 @@ export interface RecordingPolicy {
   botName: string;
   consentNotice: string;
   privateByDefault: boolean;
+  browserBotEnabled: boolean;
 }
 
 export const defaultRecordingPolicy: RecordingPolicy = {
@@ -705,6 +706,7 @@ export const defaultRecordingPolicy: RecordingPolicy = {
   botName: "Click bot",
   consentNotice: "This meeting is being recorded and transcribed by Click.",
   privateByDefault: true,
+  browserBotEnabled: false,
 };
 
 function readRecordingPolicy(settings: unknown): RecordingPolicy {
@@ -718,6 +720,7 @@ function readRecordingPolicy(settings: unknown): RecordingPolicy {
         ? r.consent_notice.slice(0, 2000)
         : defaultRecordingPolicy.consentNotice,
     privateByDefault: r.private_by_default !== false,
+    browserBotEnabled: r.browser_bot_enabled === true,
   };
 }
 
@@ -804,12 +807,14 @@ export async function updateRecordingPolicy(
     botName: (patch.botName ?? current.botName).slice(0, 80),
     consentNotice: (patch.consentNotice ?? current.consentNotice).slice(0, 2000),
     privateByDefault: patch.privateByDefault ?? current.privateByDefault,
+    browserBotEnabled: patch.browserBotEnabled ?? current.browserBotEnabled,
   };
   await patchSettings(ctx, "recording", {
     auto_join_default: next.autoJoinDefault,
     bot_name: next.botName,
     consent_notice: next.consentNotice,
     private_by_default: next.privateByDefault,
+    browser_bot_enabled: next.browserBotEnabled,
   });
   return next;
 }

@@ -6,7 +6,7 @@
  * combination of the per-event override, the workspace rules and the
  * per-calendar default.
  */
-import { botsRepo, calendarsRepo, meetingsRepo } from "@click/db";
+import { botsRepo, calendarsRepo, meetingsRepo, workspaceRepo } from "@click/db";
 import { decryptSecret } from "./crypto";
 import {
   calendarAccountEmail,
@@ -140,6 +140,13 @@ export async function syncCalendarConnection(
 
   const rules = (await calendarsRepo.listCalendarRules(ctx)) as CalendarRule[];
   const stored = await calendarsRepo.listConnectionEvents(ctx, connectionId, { from, to });
+
+  const policy = await workspaceRepo.getRecordingPolicy(ctx);
+  if (!policy.browserBotEnabled) {
+    // Events still sync so the calendar screen stays useful; only the risky
+    // browser participant is gated.
+    return { connectionId, provider, events: events.length, queuedBots: 0 };
+  }
 
   let queuedBots = 0;
   for (const event of stored) {

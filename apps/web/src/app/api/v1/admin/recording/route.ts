@@ -16,6 +16,7 @@ const patchSchema = z.object({
   botName: z.string().trim().min(1).max(80).optional(),
   consentNotice: z.string().trim().min(1).max(2000).optional(),
   privateByDefault: z.boolean().optional(),
+  browserBotEnabled: z.boolean().optional(),
 });
 
 export const PUT = handler(async (request) => {

@@ -540,6 +540,14 @@ export async function botJoinJob(data: BotJoinJobData): Promise<JobOutcome> {
     return { orgId: data.orgId, meetingId: job.meetingId };
   }
 
+  // The browser bot is opt-in. A calendar rule can queue a job, but a
+  // workspace that has not accepted the fallback must not get a silent browser.
+  const policy = await workspaceRepo.getRecordingPolicy(ctx);
+  if (!policy.browserBotEnabled) {
+    await botsRepo.failBotJob(ctx, job.id, "browser_bot_disabled");
+    throw new Error("Browser-bot joins are disabled for this workspace. Enable them in Recording policy.");
+  }
+
   await botsRepo.updateBotJobState(
     { id: job.id, orgId: data.orgId, meetingId: job.meetingId },
     { state: "joining" },
@@ -548,6 +556,7 @@ export async function botJoinJob(data: BotJoinJobData): Promise<JobOutcome> {
   const notice = await workspaceRepo.getBotNotice(ctx);
   const result = await requestBotJoin({
     botJobId: job.id,
+    orgId: data.orgId,
     meetingId: job.meetingId,
     provider: job.provider,
     meetingUrl: job.meetingUrl,

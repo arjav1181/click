@@ -15,6 +15,7 @@
     "db:seed": "pnpm --filter @click/db seed",
     "db:cli": "pnpm --filter @click/db cli",
     "worker": "pnpm --filter @click/worker dev:worker",
+    "bot": "pnpm --filter @click/bot start",
     "asr": "cd apps/asr && uvicorn main:app --reload --port 8000"
   },
   "devDependencies": {

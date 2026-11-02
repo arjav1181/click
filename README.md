@@ -107,6 +107,7 @@ account. Full deployment guide: [`docs/self-hosting.md`](docs/self-hosting.md).
 | path | what it is |
 | --- | --- |
 | `apps/web` | Next.js app: UI, `/api/v1` routes, bot callbacks |
+| `apps/bot` | Playwright meeting runner: Meet/Jitsi join, WebRTC audio capture, lifecycle callbacks |
 | `apps/worker` | BullMQ worker (transcribe, summarize, embed, email) |
 | `apps/asr` | local faster-whisper ASR service |
 | `packages/db` | Drizzle schema, migrations, RLS-aware client, repositories |
@@ -125,7 +126,7 @@ account. Full deployment guide: [`docs/self-hosting.md`](docs/self-hosting.md).
 | Design system | done (`packages/ui/design`) |
 | Build | app shell + API-backed core flow done |
 | Backend & auth | done — auth, DB + RLS, storage, providers, jobs, email |
-| Bot capture | next — Zoom RTMS / Google Meet clients |
+| Bot capture | browser runner done for Meet/Jitsi (opt-in); Zoom RTMS and Teams Graph next |
 | QA | pending |
 
 ## Contributing

@@ -1407,6 +1407,7 @@ export interface RecordingPolicy {
   botName: string;
   consentNotice: string;
   privateByDefault: boolean;
+  browserBotEnabled: boolean;
 }
 
 export async function fetchRecordingPolicy(): Promise<ApiResult<{ policy: RecordingPolicy }>> {
@@ -1464,6 +1465,41 @@ export interface BotJobRow {
 
 export async function fetchBotJobs(): Promise<ApiResult<{ jobs: BotJobRow[] }>> {
   return apiFetch<{ jobs: BotJobRow[] }>("/api/v1/bot-jobs");
+}
+
+export async function stopBotJob(id: string): Promise<ApiResult<{ ok: boolean; runnerAccepted: boolean }>> {
+  return apiFetch<{ ok: boolean; runnerAccepted: boolean }>(`/api/v1/bot-jobs/${id}/stop`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export interface BotProviderHealth {
+  failures: number;
+  open: boolean;
+}
+
+export interface BotRunnerStatus {
+  ok: boolean;
+  configured: boolean;
+  status: {
+    active: number;
+    queued: number;
+    maxConcurrent: number;
+    providers: Record<string, BotProviderHealth>;
+  } | null;
+  error?: string;
+}
+
+export async function fetchBotRunner(): Promise<ApiResult<{ runner: BotRunnerStatus }>> {
+  return apiFetch<{ runner: BotRunnerStatus }>("/api/v1/admin/bot");
+}
+
+export async function resetBotCircuit(provider: string): Promise<ApiResult<{ ok: boolean; provider: string }>> {
+  return apiFetch<{ ok: boolean; provider: string }>("/api/v1/admin/bot", {
+    method: "POST",
+    body: JSON.stringify({ provider }),
+  });
 }
 
 export interface BriefBullet {

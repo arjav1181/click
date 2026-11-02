@@ -30,7 +30,7 @@ export default function BotPage() {
   const id = params.id;
   const toast = useToast();
   const [meetingTitle, setMeetingTitle] = useState<string>("");
-  const [provider, setProvider] = useState("zoom");
+  const [provider, setProvider] = useState("meet");
   const [url, setUrl] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);

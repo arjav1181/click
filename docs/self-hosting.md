@@ -47,6 +47,7 @@ The stack starts:
 | `migrate` | one-shot service that applies pending SQL migrations |
 | `web` | the Next.js app |
 | `worker` | the background worker (transcribe, summarize, embed, email) |
+| `bot` | the Playwright meeting runner (Meet/Jitsi; opt-in per workspace) |
 | `asr` | local faster-whisper speech-to-text service |
 | `caddy` | reverse proxy and TLS terminator |
 
@@ -189,6 +190,44 @@ The redirect URI is `$APP_URL/api/v1/auth/oidc/callback`. Register that exact
 URL with your provider. Click implements OIDC with authorization code + PKCE;
 SAML is not implemented yet.
 
+### Meeting bot
+
+The bot runner is optional. Without it, manual and calendar bot jobs fail with
+`bot_service_not_configured`; uploading recordings and every other capture path
+still work.
+
+```ini
+BOT_SERVICE_URL=http://bot:8090
+BOT_WEBHOOK_SECRET=            # signs joins and callbacks; use one long random value
+BOT_HEADLESS=true              # set false + xvfb-run if a provider rejects headless
+BOT_MAX_CONCURRENT=1
+BOT_MAX_DURATION_MINUTES=240
+BOT_LOBBY_TIMEOUT_MINUTES=10
+BOT_SILENCE_TIMEOUT_MINUTES=5
+BOT_FAILURE_THRESHOLD=3
+BOT_CHROMIUM_PATH=             # optional; the runner finds Playwright/system Chromium
+```
+
+The Compose service uses the Playwright Chromium image and one browser session
+at a time. For more concurrency, run one bot container per session and raise
+`BOT_MAX_CONCURRENT` only when the host has the memory for it. Browser bots are
+**off by default in every workspace**: an owner or admin enables them in
+Admin → Recording policy after reading the warning. They are visible
+participants, not anonymous listeners.
+
+The runner records remote audio through a WebRTC tap and uploads a 16 kHz mono
+WAV through the normal callback; the usual transcription pipeline takes over.
+A provider circuit breaker disables new joins after repeated **technical**
+failures (a browser that will not start, a join that does not complete, no
+audio captured). A host denying the bot or a provider without an adapter is a
+normal outcome and does not trip the breaker. The bot console shows the runner
+state and per-provider circuits, and an owner or admin can reset a tripped
+circuit from there. Stopping a job from the bot console asks the runner to
+leave; it still uploads the partial recording.
+Google Meet's real-time Media API was discontinued, so Meet capture is either
+this browser fallback or the user-side desktop/extension path. See
+[`capture-paths.md`](./capture-paths.md) for the full decision.
+
 ### Spend cap
 
 ```ini
@@ -269,6 +308,8 @@ recordings manually or set audio retention to zero.
 
 ## Known gaps
 
-SAML SSO, outgoing webhooks, an automatic retention purge, and Redis-backed
-rate limiting (the current limiter is per process) are not finished yet. See
-the issue tracker for the current state of each.
+SAML SSO, an automatic retention purge, and Redis-backed rate limiting (the
+current limiter is per process) are not finished yet. The browser bot reaches
+Google Meet and Jitsi; Zoom and Teams still need their official adapters
+(RTMS / Graph transcript import), and the bot console surfaces that reason
+instead of faking a join. See the issue tracker for the current state of each.

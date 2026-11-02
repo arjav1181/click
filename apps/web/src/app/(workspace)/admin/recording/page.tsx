@@ -31,6 +31,7 @@ export default function RecordingPolicyPage() {
   const [botName, setBotName] = useState("Click bot");
   const [consentNotice, setConsentNotice] = useState("");
   const [privateByDefault, setPrivateByDefault] = useState(true);
+  const [browserBotEnabled, setBrowserBotEnabled] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -42,6 +43,7 @@ export default function RecordingPolicyPage() {
       setBotName(result.data.policy.botName);
       setConsentNotice(result.data.policy.consentNotice);
       setPrivateByDefault(result.data.policy.privateByDefault);
+      setBrowserBotEnabled(result.data.policy.browserBotEnabled);
     }
     if (result.error) setError(result.error);
     setLoading(false);
@@ -63,6 +65,7 @@ export default function RecordingPolicyPage() {
       botName: botName.trim(),
       consentNotice: consentNotice.trim(),
       privateByDefault,
+      browserBotEnabled,
     });
     setSaving(false);
     if (result.error) {
@@ -121,6 +124,30 @@ export default function RecordingPolicyPage() {
                 <span className="block text-sm font-semibold text-text">Auto-join calendar meetings</span>
                 <span className="block text-xs text-text-muted">
                   Bots join meetings that match your auto-join rules without a manual request.
+                </span>
+              </span>
+            </label>
+          </Card>
+
+          <Card>
+            <CardHeader
+              title="Browser bot"
+              description="The fallback that joins Meet or Jitsi as a visible participant."
+            />
+            <label className="flex cursor-pointer items-start gap-3 p-4">
+              <input
+                type="checkbox"
+                className="mt-1 size-4 accent-[var(--color-accent)]"
+                checked={browserBotEnabled}
+                onChange={(event) => setBrowserBotEnabled(event.target.checked)}
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-text">Allow browser-bot joins</span>
+                <span className="block text-xs text-text-muted">
+                  A Chromium participant joins the call and captures remote audio. This path depends on
+                  provider UI and can break without notice; use a dedicated bot account and keep a
+                  desktop or extension capture path available. When off, manual and calendar bot jobs stay
+                  queued and fail with a clear reason.
                 </span>
               </span>
             </label>

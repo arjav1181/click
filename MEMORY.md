@@ -69,6 +69,19 @@ Repo layout: pnpm workspace + Turborepo — apps/web, apps/worker, apps/asr; pac
 - Seed: a second demo workspace ("Click Labs", Ava owner / Sam member) with one meeting, so the switcher has a real choice.
 - Verified: `.data/smoke/smoke-workspaces.mjs` — 14/14 checks (list, create+own+open, tenant isolation in both directions, switch back, 404 for a foreign workspace). Screenshots in `replica/clone-screens/S07-workspace-{menu,new,menu-mobile}.png`.
 
+## Bot runner (Playwright browser bot) — DONE
+- `apps/bot` is a standalone Node service (`@click/bot`, `playwright-core`, no `dev` script so `turbo run dev` does not start it; run with `pnpm --filter @click/bot start`). It listens on `BOT_PORT` (default 8090) with `/healthz`, `POST /v1/join`, `POST /v1/bots/[id]/stop`, `POST /v1/providers/[provider]/reset`.
+- **Auth**: HMAC-SHA256 over the raw body only, header `X-Click-Signature: sha256=<hex>` plus `X-Click-Timestamp` with a ±5 min freshness window. `BOT_WEBHOOK_SECRET` is the shared secret; `BOT_SERVICE_SECRET` is an optional alias.
+- **Join**: Chromium with a stealth profile opens `meet.google.com` or a Jitsi room. `src/join.ts` detects the lobby, the host-admit prompt, the denial ("You can't join this video call") and the "wrong meeting code" states, posts the consent notice and mutes the mic. Zoom/Teams/Webex return `provider_requires_official_adapter` — no fake join.
+- **Audio**: `src/page/audio-tap.js` wraps `RTCPeerConnection`, mirrors the remote tracks, mixes them with Web Audio, downsamples to 16 kHz mono PCM and ships 200 ms batches over a Playwright binding. `src/wav.ts` writes the WAV; the session uploads it to the existing `/internal/v1/bots/[id]/recording` callback so the normal transcribe pipeline runs unchanged. No PulseAudio or virtual sink.
+- **Queue and breaker**: `src/manager.ts` caps concurrency and persists failure counts to `BOT_STATE_FILE`. Only technical failures (`browser_session_failed`, `join_failed`, `no_audio_captured`, `join_page_unexpected`) trip the per-provider circuit. A host denial or an unsupported provider is a normal outcome.
+- **Opt-in**: browser-bot joins are off by default per workspace (`organizations.settings.recording.browser_bot_enabled`, surfaced by `GET/PUT /api/v1/admin/recording`). When off, `botJoinJob` fails with `browser_bot_disabled` and `calendarSync` skips creating the bot job (events still sync).
+- **Web side**: `packages/backend/src/botService.ts` (HMAC client: join, stop, circuit reset, health), `POST /api/v1/meetings/[id]/bot` (now enqueues the `bot` job — the row used to stay `queued` forever), `DELETE` on the same route (asks the runner to stop first), `POST /api/v1/bot-jobs/[id]/stop`, `GET/POST /api/v1/admin/bot` (runner health + circuit reset). `bot_jobs.attempts` increments on failure.
+- **UI**: S55 gained the browser-bot opt-in card; S61 gained a runner card (online/unreachable/not-configured, active/queued counts, per-provider circuit state, Reset) and a Stop button on live jobs; S62 defaults to Meet.
+- **Capture-path research**: `docs/capture-paths.md` (tracked). The Meet Media API is discontinued, so the browser bot (Meet + Jitsi) is the live path, with post-meeting REST import as the fallback. Zoom = RTMS later, Teams = Graph transcript import then Bot Framework, Webex = P4. Local capture (desktop/extension) is the most reliable path.
+- **Proved locally**: manual join → runner → Chromium → `meet.google.com` → the Meet denial path → lifecycle callbacks → `bot_jobs.state='failed'`, `error_code='join_denied: …'`. A live admitted join could not be exercised (no real meeting or host in the sandbox).
+- **Deployment**: `infra/docker/bot.Dockerfile`, the `bot` service in `infra/compose/docker-compose.yml` with a `botdata` volume, and a bot section in `docs/self-hosting.md` and `.env.example`.
+
 ## Schema (packages/db/ddl/schema.sql)
 - 64 tables, RLS enabled on every tenant table, policies in `packages/db/ddl/schema.sql` and `packages/db/migrations/0000_init.sql`.
 - DDL executed on PostgreSQL 17 locally; pgvector unavailable in the sandbox, so a patched copy (`vector(1536)`→`jsonb`, HNSW index skipped) was applied via `MIGRATIONS_DIR`. Production/CI use `pgvector/pgvector:pg17`.
@@ -84,12 +97,10 @@ Repo layout: pnpm workspace + Turborepo — apps/web, apps/worker, apps/asr; pac
 - 11 outbound webhook events, 14 BullMQ jobs planned; 4 job queues implemented (transcribe, summarize, embed, email).
 - Mutating routes write audit_events in the same transaction.
 
-## Google Meet joining strategy
-1. Meet Media API (preferred, official) — Apache-2.0 sample clients at github.com/googleworkspace/meet-media-api-samples. Sidecar pipes PCM + participant events. Workspace edition eligibility caveats.
-2. Meet REST API (official, post-meeting artifacts).
-3. Browser bot fallback (opt-in) — Playwright/Chromium; prior art Vexa (Apache-2.0, ~2.9k★). Hard rules: dedicated account, visible, consent notice, opt-in, container isolation, 4h cap, daily canary, kill switch.
-4. Extension/desktop capture (no bot).
-Zoom: RTMS primary, Meeting SDK fallback. Teams: Bot Framework + Graph (P4). Webex P4.
+## Meeting capture paths
+- The **Meet Media API is discontinued** — Google's samples repo carries a deprecation notice and there is no GA release. The full research is in `docs/capture-paths.md`.
+- Live capture today: the **browser bot** (`apps/bot`) for Google Meet and Jitsi, opt-in per workspace. Fallback: post-meeting REST import.
+- Zoom: RTMS (later). Teams: Graph transcript import (later), then Bot Framework. Webex: P4. Local capture (desktop app / MV3 extension) is the most reliable path and comes next in the build order.
 
 ## Design (packages/ui/design) — DONE
 - Tokens: `packages/ui/design/tokens.json` (light) + `tokens.dark.json` (dark) are the tracked canonical source; `packages/ui/src/styles/tokens.css` is generated from them by `pnpm tokens`. The preview, component spec and contrast report stay in the local `replica/design/` folder (0 AA failures both themes).
@@ -122,8 +133,8 @@ M0 foundation → M1 vertical slice (upload/transcribe/summary/search) → M2 bo
 5. Trademark sweep for "Click".
 
 ## Next steps
-- Locked build order (user-approved): 1) webhooks + task push ✅ → 2) multi-workspace schema change (membership table + workspace switcher) ✅ → 3) Playwright bot adapter (stealth + headed, plus research into other capture paths) → 4) thin real client apps (Electron desktop, Manifest V3 extension, mobile PWA) → 5) live streaming + in-meeting AI, transcript intelligence, governance (SCIM, security headers, IP allowlist, TOTP, SSO enforcement) → 6) final QA (replica-test phase).
-- Known gaps to close later: SAML SSO (future plan only, OIDC stays supported), two-way task status sync, the `apps/bot` provider clients (Zoom/Meet/Teams), Playwright browser test suite, response security headers.
+- Locked build order (user-approved): 1) webhooks + task push ✅ → 2) multi-workspace schema change (membership table + workspace switcher) ✅ → 3) Playwright bot adapter (stealth + headed, plus research into other capture paths) ✅ → 4) thin real client apps (Electron desktop, Manifest V3 extension, mobile PWA) → 5) live streaming + in-meeting AI, transcript intelligence, governance (SCIM, security headers, IP allowlist, TOTP, SSO enforcement) → 6) final QA (replica-test phase).
+- Known gaps to close later: SAML SSO (future plan only, OIDC stays supported), two-way task status sync, the official provider adapters for Zoom/Teams/Webex, the desktop/extension capture paths, the Playwright browser test suite, response security headers.
 - The user wants everything built and iterated before the test phase starts.
 - Record in MEMORY.md after each phase.
 

@@ -12,3 +12,4 @@ export * from "./providers";
 export * from "./jobs";
 export * from "./queue";
 export * from "./webhooks";
+export * from "./botService";
