@@ -1,5 +1,11 @@
 # Click
 
+[![CI](https://github.com/arjav1181/click/actions/workflows/ci.yml/badge.svg)](https://github.com/arjav1181/click/actions/workflows/ci.yml)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
+[![Next.js](https://img.shields.io/badge/Next.js-16-000?logo=next.js&logoColor=white)](apps/web)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](apps/web)
+[![Postgres](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)](packages/db)
+
 > An open-source, self-hostable AI meeting assistant: a bot joins your calls,
 > transcribes with speaker labels, writes structured notes and summaries, and
 > lets you ask questions across every meeting you have ever had.
@@ -8,6 +14,17 @@ Status: **backend landed** — app shell + vertical slice (M0/M1) plus real auth
 Postgres + RLS, storage, providers, jobs and email. Architecture and operations
 notes live in [`docs/development.md`](docs/development.md) and
 [`docs/self-hosting.md`](docs/self-hosting.md).
+
+## Contents
+
+- [Why](#why)
+- [What is in scope](#what-is-in-scope)
+- [Stack](#stack)
+- [Running it](#running-it)
+- [Layout](#layout)
+- [Status](#status)
+- [Contributing](#contributing)
+- [Licence](#licence)
 
 Click is a clean-room rebuild of the *functionality and UX patterns* of three
 public products (Fireflies.ai, Granola, Otter.ai) — the union of their features,
