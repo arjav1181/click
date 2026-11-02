@@ -15,6 +15,16 @@ Postgres + RLS, storage, providers, jobs and email. Architecture and operations
 notes live in [`docs/development.md`](docs/development.md) and
 [`docs/self-hosting.md`](docs/self-hosting.md).
 
+Click is a clean-room rebuild of the *functionality and UX patterns* of three
+public products (Fireflies.ai, Granola, Otter.ai) — the union of their features,
+not any one of them. No original code, no original assets, no original copy, no
+reverse engineering, no private APIs. Every line is written from public
+documentation and from scratch.
+
+> **Name note.** "Click" is a crowded software mark (ClickUp, ClickHouse, Click
+> payment). It is a working name; a trademark, domain and handle sweep is a
+> launch gate.
+
 ## Contents
 
 - [Why](#why)
@@ -26,15 +36,6 @@ notes live in [`docs/development.md`](docs/development.md) and
 - [Contributing](#contributing)
 - [Licence](#licence)
 
-Click is a clean-room rebuild of the *functionality and UX patterns* of three
-public products (Fireflies.ai, Granola, Otter.ai) — the union of their features,
-not any one of them. No original code, no original assets, no original copy, no
-reverse engineering, no private APIs. Every line is written from public
-documentation and from scratch.
-
-> **Name note.** "Click" is a crowded software mark (ClickUp, ClickHouse, Click
-> payment). It is a working name; a trademark, domain and handle sweep is a
-> launch gate.
 
 ## Why
 
